@@ -1,0 +1,43 @@
+﻿<Window x:Class="AddapterSMEVClient.ViewFeedBack"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Name="this"
+        WindowStartupLocation="CenterScreen"
+        xmlns:wcf="clr-namespace:SMEV.WCFContract;assembly=SMEV"
+        Title="Данные о запросе граждан" Height="361.426" Width="734.257" Style="{DynamicResource StyleWindow}">
+    <Window.Resources>
+        <CollectionViewSource x:Key="DataViewSource" Source="{Binding ElementName=this, Path=Data.IN}" d:DesignSource="{d:DesignInstance {x:Type wcf:FeedBackDataIN}, CreateList=True}"></CollectionViewSource>
+    </Window.Resources>
+    <Grid>
+        <GroupBox Header="Входящие данные"  >
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="178*"/>
+                    <ColumnDefinition Width="179*"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="textBoxOrderId" Height="23" Margin="10,15,10,0" TextWrapping="Wrap" VerticalAlignment="Top" IsReadOnly="True"/>
+                <TextBox x:Name="textBoxApplicationId" Height="23" Margin="10,15,10,0" TextWrapping="Wrap" VerticalAlignment="Top" IsReadOnly="True" Grid.Column="1"/>
+                <Label Grid.Column="0" x:Name="label" Content="Идентификатор заявления" HorizontalAlignment="Left" Margin="6,-2,0,0" VerticalAlignment="Top" FontSize="8" />
+                <Label  Content="Номер заявки, в рамках которого сформировано обращение застрахованного" HorizontalAlignment="Left" Margin="10,-2,0,0" VerticalAlignment="Top" FontSize="8" Grid.Column="1" />
+                <DataGrid IsReadOnly="True" ItemsSource="{Binding Source={StaticResource DataViewSource}}" ColumnWidth="Auto" SelectionUnit="CellOrRowHeader" AutoGenerateColumns="False" Margin="0,43,0,0" Grid.ColumnSpan="2" Grid.Column="0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="№ обращения, сформированный ЕПГУ" Binding="{Binding AppealNumber}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Тема обращения" Binding="{Binding AppealTopic}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Код темы обращения" Binding="{Binding AppealTopicCode}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Обращение подробно" Binding="{Binding AppealDetail}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Внутренний идентификатор медицинской услуги" Binding="{Binding MedservicesId}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Усл.ок." Binding="{Binding CareRegimen}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Дата начала" Binding="{Binding DateRenderingFrom, StringFormat=dd.MM.yyyy}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Дата окончания" Binding="{Binding  DateRenderingTo, StringFormat=dd.MM.yyyy}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="ОКАТО" Binding="{Binding RegionCode}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Вид медицинской помощи" Binding="{Binding CareType}"></DataGridTextColumn>
+                        <DataGridTextColumn Header="Стоимость" Binding="{Binding MedservicesSum}"></DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </GroupBox>
+    </Grid>
+</Window>

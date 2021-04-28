@@ -1,0 +1,330 @@
+﻿<Window x:Class="AddapterSMEVClient.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      
+        xmlns:wcf="clr-namespace:SMEV.WCFContract;assembly=SMEV"
+        xmlns:myControl="clr-namespace:AddapterSMEVClient.Control"
+        mc:Ignorable="d"
+        xmlns:System="clr-namespace:System;assembly=mscorlib"
+        x:Name="this"
+        Title="Управления сервисом СМЭВ" Height="575.5" Width="989" Style="{DynamicResource StyleWindow}" Loaded="this_Loaded" Closing="this_Closing" StateChanged="this_StateChanged">
+    <Window.Resources>
+        <CollectionViewSource x:Key="ConfigViewSource" d:DesignSource="{d:DesignInstance {x:Type wcf:Config_VS}, CreateList=True}"  Source="{Binding ElementName=this, Path=Configuration.ListVS}"  ></CollectionViewSource>
+        <CollectionViewSource x:Key="LogServiceViewSource" d:DesignSource="{d:DesignInstance {x:Type wcf:EntriesMy}, CreateList=True}"  Source="{Binding ElementName=this, Path=LogService}"  ></CollectionViewSource>
+        <CollectionViewSource x:Key="DoWorkViewSource" d:DesignSource="{d:DesignInstance {x:Type wcf:VSWorkProcess}, CreateList=True}"  Source="{Binding ElementName=this, Path=DoWork}"  ></CollectionViewSource>
+        <CollectionViewSource x:Key="ReportViewSource" d:DesignSource="{d:DesignInstance {x:Type wcf:ReportRow}, CreateList=True}"  Source="{Binding ElementName=this, Path=Report}"  ></CollectionViewSource>
+
+        <CollectionViewSource x:Key="LogMessageViewSource" d:DesignSource="{d:DesignInstance {x:Type wcf:LogRow}, CreateList=True}"  Source="{Binding ElementName=this, Path=LogMessage}"  ></CollectionViewSource>
+        <ObjectDataProvider x:Key="enumValues"   MethodName="GetValues" ObjectType="{x:Type System:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="wcf:Integration"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+        <ObjectDataProvider x:Key="MessageLoggerVSValues"   MethodName="GetValues" ObjectType="{x:Type System:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="wcf:MessageLoggerVS"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+    </Window.Resources>
+    <Grid DataContext="{Binding Source={StaticResource MessageLoggerVSValues}}">
+        <TabControl x:Name="tabControl1" Margin="10,10,10,7" SelectionChanged="tabControl1_SelectionChanged">
+            <TabItem Header="Лог сервиса" Name="LogServiceTab">
+                <Grid>
+                    <Button x:Name="buttonLogRefresh" Content="Обновить" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Bottom" Width="30" Click="buttonLogRefresh_Click" Style="{DynamicResource ButtonRefresh}" Height="30"/>
+                    <ListView x:Name="listView1" Margin="10,10,10,35" ItemsSource="{Binding Mode=OneWay, Source={StaticResource LogServiceViewSource}}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="" >
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Image Width="20" >
+                                                <Image.Style>
+                                                    <Style TargetType="Image">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding  Type}" Value="{x:Static wcf:TypeEntries.message}">
+                                                                <Setter Property="Source" Value="Resource/LEFT.png"></Setter>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding  Type}" Value="{x:Static wcf:TypeEntries.error}">
+                                                                <Setter Property="Source" Value="Resource/ERR_ICO.png"></Setter>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding  Type}" Value="{x:Static wcf:TypeEntries.warning}">
+                                                                <Setter Property="Source" Value="Resource/WARNING.png"></Setter>
+                                                            </DataTrigger>
+
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Image.Style>
+                                            </Image>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Время" DisplayMemberBinding="{Binding TimeGenerated, StringFormat=dd.MM.yyyy_HH:mm}" Width="Auto" />
+                                <GridViewColumn Header="Сообщение" DisplayMemberBinding="{Binding Message}" Width="Auto" />
+                            </GridView>
+
+                        </ListView.View>
+                        <ListView.ContextMenu>
+
+                            <ContextMenu>
+                                <MenuItem Click="MenuItem_Click" Header="Копировать в буфер"></MenuItem>
+                            </ContextMenu>
+                        </ListView.ContextMenu>
+                    </ListView>
+                    <TextBox x:Name="textBoxCountLog" HorizontalAlignment="Left" Margin="50,0,0,0" TextWrapping="Wrap" Text="50" Width="57" HorizontalContentAlignment="Right" VerticalContentAlignment="Center" Height="30" VerticalAlignment="Bottom"/>
+                    <CheckBox x:Name="checkBoxHideWarning" Content="Скрывать предупреждения" Width="179" Margin="112,0,0,10" VerticalContentAlignment="Center" IsChecked="True" Height="14" VerticalAlignment="Bottom" HorizontalAlignment="Left"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Статус работы" Name="StatusServiceTab" >
+                <Grid>
+                    <Button x:Name="buttonStatus" Content="Button" HorizontalAlignment="Right" Margin="0,10,10,0" VerticalAlignment="Top" Width="30" Click="buttonStatus_Click" Style="{DynamicResource ButtonRefresh}" Height="30"/>
+                    <ListView x:Name="listBox" Margin="10,10,45,10" ItemsSource="{Binding Mode=OneWay, Source={StaticResource DoWorkViewSource}}">
+
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Вид сведений" DisplayMemberBinding="{Binding VS}" Width="Auto" />
+                                <GridViewColumn Header="Система" DisplayMemberBinding="{Binding ItSystem}" Width="Auto" />
+                                <GridViewColumn Header="Активность" Width="Auto" >
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Image Width="20" >
+                                                <Image.Style>
+                                                    <Style TargetType="Image">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding  Activ}" Value="True">
+                                                                <Setter Property="Source" Value="Resource/player_play.png"></Setter>
+                                                                <Setter Property="ToolTip" Value="Обработка запущена"></Setter>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding  Activ}" Value="False">
+                                                                <Setter Property="Source" Value="Resource/player_pause.png"></Setter>
+                                                                <Setter Property="ToolTip" Value="Обработка остановлена"></Setter>
+                                                            </DataTrigger>
+
+
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Image.Style>
+                                            </Image>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Сообщение" DisplayMemberBinding="{Binding Text}" Width="Auto" />
+                                <GridViewColumn Header="Действия" Width="Auto" >
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Image Width="20" MouseLeftButtonUp="UIElement_OnMouseLeftButtonUp" Cursor="Hand" >
+                                                    <Image.Style>
+                                                        <Style TargetType="Image">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding  Activ}" Value="False">
+                                                                    <Setter Property="Source" Value="Resource/player_play.png"></Setter>
+                                                                    <Setter Property="ToolTip" Value="Запустить обработку"></Setter>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding  Activ}" Value="True">
+                                                                    <Setter Property="Source" Value="Resource/player_pause.png"></Setter>
+                                                                    <Setter Property="ToolTip" Value="Остановить обработку"></Setter>
+                                                                </DataTrigger>
+
+
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Image.Style>
+                                                </Image>
+                                            </Grid>
+
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
+                </Grid>
+            </TabItem>
+            <TabItem Header="Лог сообщений" Name="LogMessageTab">
+                <Grid>
+                    <TextBox x:Name="textBoxLogMessageCount" Height="23"  TextWrapping="Wrap" Text="50" Margin="10,10,0,0" HorizontalContentAlignment="Right" VerticalContentAlignment="Center" VerticalAlignment="Top" HorizontalAlignment="Left" Width="57"/>
+                    <Button x:Name="buttonLogMessage"  Content="Обновить" HorizontalAlignment="Left" Margin="72,10,0,0" VerticalAlignment="Top" Width="20" Height="23" Click="buttonLogMessage_Click" Style="{DynamicResource ButtonRefresh}"/>
+                    <DataGrid x:Name="DataGridMessage" Margin="10,41,10,28" ItemsSource="{Binding Mode=OneWay, Source={StaticResource LogMessageViewSource}}" IsReadOnly="True" AutoGenerateColumns="False" SelectionUnit="CellOrRowHeader"  >
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Ид" Binding="{Binding ID}" Width="Auto" />
+                            <DataGridTextColumn Header="Система" Binding="{Binding ITSYSTEM}" Width="Auto" />
+                            <DataGridTextColumn Header="Вид сведений" Binding="{Binding VS}" Width="Auto" />
+
+                            <DataGridTextColumn Header="Дата(IN)" Binding="{Binding DATE_IN,StringFormat=dd.MM.yyyy_HH:mm}" Width="Auto" />
+                            <DataGridTextColumn Header="Код(IN)" Binding="{Binding ID_MESSAGE_IN}" Width="Auto" />
+                            <DataGridTextColumn Header="Статус(IN)" Binding="{Binding STATUS_IN}" Width="Auto" />
+                            <DataGridTextColumn Header="Комментарий(IN)" Binding="{Binding COMMENT_IN}" Width="Auto" />
+
+                            <DataGridTextColumn Header="Дата(OUT)" Binding="{Binding DATE_OUT,StringFormat=dd.MM.yyyy_HH:mm}" Width="Auto" />
+                            <DataGridTextColumn Header="Код(OUT)" Binding="{Binding ID_MESSAGE_OUT}" Width="Auto" />
+                            <DataGridTextColumn Header="Статус(OUT)" Binding="{Binding STATUS_OUT}" Width="Auto" />
+                            <DataGridTextColumn Header="Комментарий(OUT)" Binding="{Binding COMMENT_OUT}" Width="Auto"  />
+                            <DataGridTextColumn Header="Идентификатор заявления" Binding="{ Binding OrderId}"></DataGridTextColumn>
+                            <DataGridTextColumn Header="№ заявки, в рамках которого сформировано обращение" Binding="{ Binding ApplicationId}"></DataGridTextColumn>
+                        </DataGrid.Columns>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <EventSetter Event="MouseDoubleClick" Handler="listBox12_MouseDoubleClick"/>
+                                <Setter Property="Background" Value="#FFF7BDAB"></Setter>
+                                <Style.Triggers>
+                                    <DataTrigger  Binding="{Binding STATUS_IN}" Value="{x:Static wcf:MessageLoggerStatus.INPUT }">
+                                        <Setter Property="Background" Value="#FFC4E5FB"></Setter>
+                                    </DataTrigger>
+                                    <DataTrigger  Binding="{Binding STATUS_OUT}" Value="{x:Static wcf:MessageLoggerStatus.OUTPUT }">
+                                        <Setter Property="Background" Value="#FFC4E5FB"></Setter>
+                                    </DataTrigger>
+                                    <MultiDataTrigger >
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding STATUS_IN}" Value="{x:Static wcf:MessageLoggerStatus.SUCCESS }"></Condition>
+                                            <Condition Binding="{Binding STATUS_OUT}" Value="{x:Static wcf:MessageLoggerStatus.SUCCESS }"></Condition>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Background" Value="#FFD3F5BC"></Setter>
+                                    </MultiDataTrigger>
+
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Click="MenuItem_OnClickView" Header="Просмотр"/>
+                                <Separator></Separator>
+                                <MenuItem Click="MenuItem_OnClickDel" Header="Удалить"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                    </DataGrid>
+                    <myControl:MultiSelectComboBox x:Name="comboBoxVSMessage"   Height="23" Margin="196,10,242,0" VerticalAlignment="Top" ItemsSource="{Binding Mode=OneWay, Source={StaticResource MessageLoggerVSValues}}" DropDownClosed="comboBoxVSMessage_OnSelectionChange" />
+                    <DatePicker Name="DataIN" HorizontalAlignment="Right" Height="23" Margin="0,10,131,0" VerticalAlignment="Top" Width="106" SelectedDateChanged="DataIN_SelectedDateChanged" />
+                    <DatePicker Name="DataOUT" HorizontalAlignment="Right" Height="23" Margin="0,10,10,0" VerticalAlignment="Top" Width="106" SelectedDateChanged="DataIN_SelectedDateChanged"/>
+                    <Label x:Name="label2" Content="Вид сведений" HorizontalAlignment="Left" Margin="97,9,0,0" VerticalAlignment="Top" Width="94"/>
+                    <Label x:Name="label5" Content="{Binding Items.Count, ElementName=DataGridMessage, Mode=OneWay}" HorizontalAlignment="Right" Margin="0,0,10,2" VerticalAlignment="Bottom" Width="198" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"/>
+
+                </Grid>
+            </TabItem>
+            <TabItem Header="Отчеты">
+                <Grid>
+                    <Button x:Name="buttonReportUpdate" Content="Button" HorizontalAlignment="Left" Margin="6,5,0,0" VerticalAlignment="Top" Width="22" Style="{DynamicResource ButtonRefresh}" Height="22" RenderTransformOrigin="0.5,0.5" Click="buttonReportUpdate_Click"/>
+                    <DatePicker Margin="87,3,0,0" VerticalAlignment="Top" Name="DTReportB" HorizontalAlignment="Left" Width="100"/>
+                    <DatePicker Margin="212,3,0,0" VerticalAlignment="Top"  Name="DTReportE" HorizontalAlignment="Left" Width="100" />
+                    <Label x:Name="label3" Content="по" Margin="187,3,0,0" HorizontalAlignment="Left" Width="25" Height="24" VerticalAlignment="Top"/>
+                    <Label x:Name="label4" Content="с" Margin="65,3,0,0" HorizontalAlignment="Left" Width="17" Height="24" VerticalAlignment="Top"/>
+                    <GroupBox x:Name="groupBox2" Header="Данные" Margin="6,32,10,10">
+                        <Grid>
+                            <DataGrid x:Name="dataGrid" ItemsSource="{Binding Mode=OneWay, Source={StaticResource ReportViewSource}}" IsReadOnly="True" AutoGenerateColumns="False" >
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Binding="{Binding dt, StringFormat=dd.MM.yyyy, TargetNullValue=Итого}" Header="Дата" />
+
+
+                                    <DataGridTextColumn Binding="{Binding Count}" Header="Кол-во запросов"></DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding People}" Header="Кол-во людей"></DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding USL}" Header="Кол-во возвращенных услуг"></DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Answer}" Header="Отвечено"></DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Error}" Header="Ошибок"></DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding noAnswer}" Header="Без ответа"></DataGridTextColumn>
+                                </DataGrid.Columns>
+                                <DataGrid.RowStyle>
+                                    <Style TargetType="DataGridRow">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding dt}" Value="{x:Null}">
+                                                <Setter Property="FontWeight" Value="Bold"></Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.RowStyle>
+                            </DataGrid>
+                        </Grid>
+                    </GroupBox>
+                    <Button x:Name="buttonReportToExcel" Content="В Excel" HorizontalAlignment="Right" Margin="0,5,10,0" VerticalAlignment="Top" Width="87"  Height="22" RenderTransformOrigin="0.5,0.5" Style="{DynamicResource MainButton}" Click="buttonReportToExcel_Click"/>
+                    <Button x:Name="buttonReportToExcel_Copy" Content="Текущий период" HorizontalAlignment="Left" Margin="317,4,0,0" VerticalAlignment="Top" Width="128"  Height="22" RenderTransformOrigin="0.5,0.5" Style="{DynamicResource MainButton}" Click="buttonReportToExcel_Copy_Click"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Проверка связи" Name="PingTab">
+                <Grid>
+                    <TextBox x:Name="textBoxPingAdress" Height="23" TextWrapping="Wrap" Text="" Width="203" Margin="173,14,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                    <Label Content="IP:" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+                    <CheckBox x:Name="CheckBoxPingEnabled" Height="23" Content="Проверять автоматически" Width="203" Margin="173,42,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                    <TextBox x:Name="textBoxPingTimeout" Height="23" Text="30" Width="203" Margin="173,65,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                    <Label Content="Интервал проверок(мин):" HorizontalAlignment="Left" Margin="10,61,0,0" VerticalAlignment="Top"/>
+                    <Button x:Name="ButtonSavePingParameter" Content="Сохранить параметры" Margin="10,111,0,0" Style="{DynamicResource MainButton}" Click="ButtonSavePingParameter_Click" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="159"/>
+                    <Button x:Name="ButtonPing" Content="Проверить сейчас" Margin="10,293,0,0" Style="{DynamicResource MainButton}" Click="ButtonPing_Click" HorizontalAlignment="Left" Width="366" Height="28" VerticalAlignment="Top"/>
+                    <Button x:Name="ButtonGetPingParameter" Content="Текущие параметры" Margin="217,111,0,0" Style="{DynamicResource MainButton}" Click="ButtonGetPingParameter_Click" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="159"/>
+                    <TextBox x:Name="textBoxNameProcess" TextWrapping="Wrap" Text="TextBox" Margin="418,42,10,0" AcceptsReturn="True" Height="97" VerticalAlignment="Top"/>
+                    <Label Content="Проверять запущен ли процесс" HorizontalAlignment="Left" Margin="418,11,0,0" VerticalAlignment="Top"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Параметры"  Name="SettingTab">
+                <Grid>
+                    <Button x:Name="buttonSetting" Content="Обновить" HorizontalAlignment="Right" VerticalAlignment="Top" Width="30" Height="30" Click="buttonSetting_Click" Style="{DynamicResource ButtonRefresh}"/>
+                    <GroupBox x:Name="groupBox" Header="Настройка вида сведений" Margin="98,60,10,34">
+                        <Grid>
+                            <CheckBox x:Name="checkBox" Content="Активна" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="82" IsChecked="{Binding isEnabled, Mode=TwoWay, Source={StaticResource ConfigViewSource}}"/>
+                            <TextBox x:Name="textBoxItSystem" Height="23" Margin="142,36,10,0"  Text="{Binding /ItSystem, Mode=TwoWay, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                            <TextBox x:Name="textBoxConnectionString" Height="23" Margin="142,65,10,0" Text="{Binding /ConnectionString, Mode=TwoWay, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                            <ComboBox x:Name="textBoxIntegration1" ItemsSource="{Binding Source={StaticResource enumValues}}" Height="23" Margin="142,92,10,0"  Text="TextBox" VerticalAlignment="Top" SelectedValue="{Binding /Integration, Mode=TwoWay, Source={StaticResource ConfigViewSource}}"/>
+                            <TabControl x:Name="tabControl" Height="149" Margin="10,199,10,0" VerticalAlignment="Top">
+                                <TabItem Header="Конфигурация файлов">
+                                    <Grid>
+                                        <TextBox x:Name="textBoxArchiveFolder" IsReadOnly="True" Foreground="Gray" Height="23" Margin="99,10,45,0"  Text="{Binding /FilesConfig.ArchiveFolder, Mode=TwoWay, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                                        <TextBox x:Name="textBoxInputFolder" IsReadOnly="True" Foreground="Gray" Height="23" Margin="99,38,45,0"  Text="{Binding /FilesConfig.InputFolder, Mode=TwoWay, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                                        <TextBox x:Name="textBoxOutputFolder"  IsReadOnly="True" Foreground="Gray" Height="23" Margin="99,66,45,0"  Text="{Binding /FilesConfig.OutputFolder, Mode=TwoWay, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                                        <TextBox x:Name="textBoxPoccessFolder"  IsReadOnly="True" Foreground="Gray" Height="23" Margin="99,94,45,0"  Text="{Binding /FilesConfig.PoccessFolder, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                                        <Label x:Name="label_Copy2" Content="Архив" ToolTip="Папка в которой будет сохранятся история приема и отправки сообщений" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462"/>
+                                        <Label x:Name="label_Copy3" Content="Входящие" ToolTip="Папка в которой будут искаться входящие сообщения СМЭВ" HorizontalAlignment="Left" Margin="0,34,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462"/>
+                                        <Label x:Name="label_Copy4" Content="Исходящие" ToolTip="Папка в которую будут сохранятся исходящие сообщения в СМЭВ" HorizontalAlignment="Left" Margin="0,62,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462"/>
+                                        <Label x:Name="label_Copy5" Content="Обработка" ToolTip="Папка в которую будут переносится входящие сообщения в СМЭВ(текущие в работе)" HorizontalAlignment="Left" Margin="0,90,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462"/>
+                                        <Button x:Name="button1" Content="Button" HorizontalAlignment="Right" Margin="0,10,10,0" VerticalAlignment="Top" Width="30"  Height="23" Click="button1_Click" Style="{DynamicResource ButtonFolder}" RenderTransformOrigin="0.5,0.5">
+
+                                        </Button>
+                                        <Button x:Name="button1_Copy" Content="Button" HorizontalAlignment="Right" Margin="0,38,10,0" VerticalAlignment="Top" Width="30"  Height="23" Click="button1_Copy_Click" Style="{DynamicResource ButtonFolder}"/>
+                                        <Button x:Name="button1_Copy1" Content="Button" HorizontalAlignment="Right" Margin="0,66,10,0" VerticalAlignment="Top" Width="30"  Height="23" Click="button1_Copy1_Click" Style="{DynamicResource ButtonFolder}"/>
+                                        <Button x:Name="button1_Copy2" Content="Button" HorizontalAlignment="Right" Margin="0,94,10,0" VerticalAlignment="Top" Width="30"  Height="23" Click="button1_Copy2_Click" Style="{DynamicResource ButtonFolder}"/>
+
+                                    </Grid>
+                                </TabItem>
+                                <TabItem Header="Конфигурация БД">
+                                    <Grid />
+                                </TabItem>
+                            </TabControl>
+                            <Label x:Name="label" Content="Мнемоника" HorizontalAlignment="Left" Margin="10,33,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462"/>
+                            <Label x:Name="label_Copy" Content="Строка подключения" HorizontalAlignment="Left" Margin="10,61,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462"/>
+                            <Label x:Name="label_Copy1" Content="Интеграция" HorizontalAlignment="Left" Margin="10,87,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462"/>
+                            <TextBox x:Name="textBoxPoccessFolder_Copy"  IsReadOnly="True" Foreground="Gray" Height="23" Margin="142,121,45,0"  Text="{Binding /TranspotrMessage, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                            <Label x:Name="label_Copy6" Content="Папка транспорта" ToolTip="Папка в которую будут переносится бизнес данные сообщения" HorizontalAlignment="Left" Margin="10,118,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462" Width="127"/>
+                            <Button x:Name="button1_Copy3" Content="Button" HorizontalAlignment="Right" Margin="0,121,10,0" VerticalAlignment="Top" Width="30"  Height="23" Click="button1_Copy3_Click" Style="{DynamicResource ButtonFolder}" />
+                            <TextBox x:Name="textBoxUserOutMessage"  IsReadOnly="True" Foreground="Gray" Height="23" Margin="142,147,45,0"  Text="{Binding /UserOutMessage, Source={StaticResource ConfigViewSource}}" VerticalAlignment="Top"/>
+                            <Label x:Name="label_Copy7" Content="Папка user out" ToolTip="Папка файлы из которой будут отправляться в адаптер" HorizontalAlignment="Left" Margin="10,144,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.421,0.462" Width="127"/>
+                            <Button x:Name="buttonUserOutMessage" Content="Button" HorizontalAlignment="Right" Margin="0,147,10,0" VerticalAlignment="Top" Width="30"  Height="23" Style="{DynamicResource ButtonFolder}" Click="buttonUserOutMessage_Click" />
+
+                        </Grid>
+
+                    </GroupBox>
+                    <Button x:Name="button_Copy" Content="Сохранить" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="140" Click="button_Copy_Click" Style="{DynamicResource MainButton}" />
+                    <TextBox x:Name="textBox" Height="23" Margin="142,7,49,0" TextWrapping="Wrap" Text="{Binding Configuration.ConnectionString, ElementName=this}" VerticalAlignment="Top"/>
+                    <GroupBox x:Name="groupBox1" Header="Вид сведений" HorizontalAlignment="Left" Margin="0,60,0,34" Width="93">
+                        <Grid>
+                            <ListView x:Name="listView" IsSynchronizedWithCurrentItem="True" ItemsSource="{Binding Mode=OneWay, Source={StaticResource ConfigViewSource}}" >
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Label Content="{Binding VS}"/>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+
+                    </GroupBox>
+                    <Label x:Name="label1" Content="Строка подключения" HorizontalAlignment="Left" Margin="10,4,0,0" VerticalAlignment="Top"/>
+                    <TextBox x:Name="textBox_Copy" Height="23" Margin="142,32,49,0" TextWrapping="Wrap" Text="{Binding Configuration.TimeOut, ElementName=this}" VerticalAlignment="Top"/>
+                    <Label x:Name="label1_Copy" Content="Частота проверки(с)" HorizontalAlignment="Left" Margin="10,29,0,0" VerticalAlignment="Top"/>
+                </Grid>
+            </TabItem>
+
+
+
+
+
+        </TabControl>
+
+    </Grid>
+</Window>

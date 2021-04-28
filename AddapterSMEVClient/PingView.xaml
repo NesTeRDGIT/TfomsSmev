@@ -1,0 +1,25 @@
+﻿<Window x:Class="AddapterSMEVClient.PingView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:AddapterSMEVClient"
+        xmlns:wcf="clr-namespace:SMEV.WCFContract;assembly=SMEV"
+        mc:Ignorable="d"
+        Name="this"
+        Title="Проверка соединения" Height="353.333" Width="687" Style="{DynamicResource StyleWindow}" WindowStartupLocation="CenterScreen" >
+ <Window.Resources>
+        <CollectionViewSource x:Key="CVS" d:DesignSource="{d:DesignInstance {x:Type wcf:PingResult}, CreateList=True}" Source="{Binding ElementName=this, Path=Pings}"></CollectionViewSource>
+ </Window.Resources>
+    <Grid>
+        <DataGrid x:Name="dataGrid" Margin="0,6,0,0" ItemsSource="{Binding Source={StaticResource CVS}}" IsReadOnly="True" ColumnWidth="Auto" AutoGenerateColumns="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Дата" Binding="{Binding DT,StringFormat=dd.MM.yyyy hh:mm:ss}"></DataGridTextColumn>
+                <DataGridTextColumn Header="Адрес" Binding="{Binding Adress}"></DataGridTextColumn>
+                <DataGridTextColumn Header="Результат" Binding="{Binding Result}"></DataGridTextColumn>
+                <DataGridTextColumn Header="Комментарий" Binding="{Binding Text}"></DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+    </Grid>
+</Window>
