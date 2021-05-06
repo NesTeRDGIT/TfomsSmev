@@ -41,8 +41,7 @@ namespace SmevAdapterService.AdapterLayer.XmlClasses
             {
                 var text = response.Serialize();
                 send.ResponseMessage.ResponseContent.content = new Content { MessagePrimaryContent = text };
-            };
-
+            }
             return send.SerializeToX(send.Xmlns); 
         }
     }

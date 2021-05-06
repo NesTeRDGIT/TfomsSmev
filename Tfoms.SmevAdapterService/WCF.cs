@@ -5,10 +5,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Reflection;
 using System.ServiceModel;
 using System.Threading;
+using System.Threading.Tasks;
 using Npgsql;
 using NpgsqlTypes;
+using SMEV;
 using SMEV.WCFContract;
 using SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService;
 
@@ -17,70 +20,47 @@ namespace SmevAdapterService
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single,IncludeExceptionDetailInFaults = true,ConcurrencyMode = ConcurrencyMode.Multiple)]
     class WcfServer : IWcfInterface
     {
-        const string log_name = "SMEV_Service";
-        public static void AddLog(string log, EventLogEntryType type)
+        private ILogger logger;
+        private IProcess process;
+        private IConfigurationManager ConfigurationManager { get; set; }
+        private IPingManager pingManager;
+      
+        private void AddLog(string log, LogType type)
         {
-            try
-            {
-                var el = new EventLog();
-                if (!EventLog.SourceExists(log_name))
-                {
-                    EventLog.CreateEventSource(log_name, log_name);
-                }
-                el.Source = log_name;
-                el.WriteEntry(log, type);
-            }
+            logger?.AddLog(log, type);
+        }
+       
+        public WcfServer(ILogger logger, IProcess process, IConfigurationManager ConfigurationManager, IPingManager pingManager)
+        {
+            this.logger = logger;
+            this.process = process;
+            this.ConfigurationManager = ConfigurationManager;
+            this.pingManager = pingManager;
+        }
 
-            catch { }
-        }
-        public Configuration Config { get; set; }
-        public PingConfig Config_Ping { get; set; }
-        public Dictionary<SMEV.WCFContract.VS, ProcessObr> CurrentWork { get; set; } = new Dictionary<SMEV.WCFContract.VS, ProcessObr>();
-        public WcfServer(Configuration conf)
-        {
-            Config = conf;
-        }
+     
         public Configuration GetConfig()
         {
-            return Config;
+            return ConfigurationManager.config;
         }
 
-        public delegate void ChangeConfig();
-        public event ChangeConfig onChangeConfig;
-        public event ChangeConfig onChangeConfig_PING;
-
+ 
         public void SetConfig(Configuration config)
         {
-            Config = config;
-            Config.Check();
-            onChangeConfig?.Invoke();
+            ConfigurationManager.config = config;
+            ConfigurationManager.config.Check();
+            ConfigurationManager.Save();
+            AddLog("Перезапуск Конфигурации(изменение)", LogType.Information);
+            process.StopProcess();
+            process.StartProcess(ConfigurationManager.config);
+            AddLog("Конфигурация запущена", LogType.Information);
         }
 
         List<EntriesMy> IWcfInterface.GetEventLogEntry(int Count, bool HideWarning)
         {
             try
             {
-                var rez = new List<EntriesMy>();
-                if (!EventLog.Exists(log_name)) return rez;
-                var EventLog1 = new EventLog {Source = log_name};
-
-                for (var i = EventLog1.Entries.Count - 1; i >= 0; i--)
-                {
-                    var entry = EventLog1.Entries[i];
-                    if (HideWarning && entry.EntryType == EventLogEntryType.Warning)
-                        continue;
-                    var item = new EntriesMy { Message = entry.Message, TimeGenerated = entry.TimeGenerated };
-                    switch (entry.EntryType)
-                    {
-                        case EventLogEntryType.Error: item.Type = TypeEntries.error; break;
-                        case EventLogEntryType.Warning: item.Type = TypeEntries.warning; break;
-                        default: item.Type = TypeEntries.message; break;
-                    }
-                    rez.Add(item);
-                    if(rez.Count>=Count)
-                        break;;
-                }
-                return rez;
+                return logger?.GetLog(Count, HideWarning);
             }
             catch(Exception ex)
             {
@@ -93,9 +73,10 @@ namespace SmevAdapterService
             try
             {
                 var res = new List<VSWorkProcess>();
-                foreach (var t in CurrentWork)
+                foreach (var t in process.CurrentWork)
                 {
-                    res.Add(new VSWorkProcess { Activ = t.Value.Thread?.IsAlive ?? false, ItSystem = t.Value.Config.ItSystem, VS = t.Value.Config.VS, Text = t.Value.Text });
+                    var value = t.Value;
+                    res.Add(new VSWorkProcess { Activ = value.isActiv, ItSystem = value.ItSystem, VS = value.VS, Text = value.Text });
                 }
                 return res;
             }
@@ -108,9 +89,8 @@ namespace SmevAdapterService
         {
             try
             {
-               
                 var tbl = new DataTable();
-                var cmd = new NpgsqlCommand("SELECT * FROM public.getlog_service(@Count, @VS, @DATE_B, @DATE_E)", new NpgsqlConnection(Config.ConnectionString));
+                var cmd = new NpgsqlCommand("SELECT * FROM public.getlog_service(@Count, @VS, @DATE_B, @DATE_E)", new NpgsqlConnection(ConfigurationManager.config.ConnectionString));
                 cmd.Parameters.Add(new NpgsqlParameter("Count", Count));
 
                 var vs_par = new NpgsqlParameter("VS", NpgsqlDbType.Array | NpgsqlDbType.Numeric);
@@ -157,7 +137,7 @@ namespace SmevAdapterService
         }
         public MedpomData GetMedpomData(int ID)
         {
-            using (var con = new NpgsqlConnection(Config.ConnectionString))
+            using (var con = new NpgsqlConnection(ConfigurationManager.config.ConnectionString))
             {
                 var oda = new NpgsqlDataAdapter(@"SELECT * FROM  public.medpom_data_out t  where log_service_id = @log_service_id", con);
                 oda.SelectCommand.Parameters.Add(new NpgsqlParameter("log_service_id", ID));
@@ -174,7 +154,7 @@ namespace SmevAdapterService
         }
         public FeedBackData GetFeedBackData(int ID)
         {
-            using (var con = new NpgsqlConnection(Config.ConnectionString))
+            using (var con = new NpgsqlConnection(ConfigurationManager.config.ConnectionString))
             {
                 var oda = new NpgsqlDataAdapter(@"SELECT * FROM public.feedbackinfo where  log_service_id = @log_service_id", con);
                 oda.SelectCommand.Parameters.Add(new NpgsqlParameter("log_service_id", ID));
@@ -191,7 +171,7 @@ namespace SmevAdapterService
             {
                 var rez = new List<ReportRow>();
                 var tbl = new DataTable();
-                var cmd = new NpgsqlCommand("SELECT * FROM public.report_mp(@DATE_B, @DATE_E)", new NpgsqlConnection(Config.ConnectionString));
+                var cmd = new NpgsqlCommand("SELECT * FROM public.report_mp(@DATE_B, @DATE_E)", new NpgsqlConnection(ConfigurationManager.config.ConnectionString));
                 cmd.Parameters.Add(new NpgsqlParameter("DATE_B", NpgsqlDbType.Date) { Value = DATE_B.Date });
                 cmd.Parameters.Add(new NpgsqlParameter("DATE_E", NpgsqlDbType.Date) { Value = DATE_E.Date });
                 var oda = new NpgsqlDataAdapter(cmd);
@@ -212,33 +192,7 @@ namespace SmevAdapterService
             var res = new PingResult();
             try
             {
-                res.Adress = Config_Ping.Adress;
-
-                var ping = new System.Net.NetworkInformation.Ping();
-                var result = false;
-                for (var i = 0; i < 4; i++)
-                {
-                    var pingReply = ping.Send(Config_Ping.Adress);
-                    if (pingReply != null && pingReply.Status == System.Net.NetworkInformation.IPStatus.Success)
-                    {
-                        result = true;
-                    }
-                }
-                res.Result = result;
-
-                if (Config_Ping.Process != null)
-                {
-                    var procList = GetProcessPath().ToArray();
-                    foreach (var proc in Config_Ping.Process)
-                    {
-                        if (procList.Count(x =>string.Equals(x, proc, StringComparison.CurrentCultureIgnoreCase))==0)
-                        {
-                            res.Result = false;
-                            res.Text += $"Процесс '{proc}' не запущен;";
-                        }
-                    }
-                }
-
+                res = pingManager.Ping();
             }
             catch (Exception e)
             {
@@ -296,7 +250,7 @@ namespace SmevAdapterService
         {
             try
             {
-                using (var CONN = new NpgsqlConnection(Config.ConnectionString))
+                using (var CONN = new NpgsqlConnection(ConfigurationManager.config.ConnectionString))
                 {
                     CONN.Open();
                     using (var TRAN = CONN.BeginTransaction())
@@ -330,9 +284,14 @@ namespace SmevAdapterService
 
         public void ChangeActivProcess(SMEV.WCFContract.VS vS, bool v)
         {
-            var VS = Config.ListVS.First(x => x.VS == vS);
-            VS.isEnabled = v;
-            onChangeConfig?.Invoke();
+            var VS = ConfigurationManager.config.ListVS.FirstOrDefault(x => x.VS == vS);
+            if (VS != null)
+            {
+                VS.isEnabled = v;
+                process.StopProcess();
+                process.StartProcess(ConfigurationManager.config);
+                ConfigurationManager.Save();
+            }
         }
 
 
@@ -360,13 +319,16 @@ namespace SmevAdapterService
 
         public void PingParamSet(PingConfig PC)
         {
-            Config_Ping = PC;
-            onChangeConfig_PING?.Invoke();
+            AddLog("Перезапуск PING:", LogType.Information);
+            pingManager.Stop();
+            pingManager.config = PC;
+            pingManager.SaveConfig();
+            pingManager.Start();
         }
 
         public PingConfig PingParamGet()
         {
-            return Config_Ping;
+            return pingManager.config;
 
         }
 
@@ -399,28 +361,40 @@ namespace SmevAdapterService
         {
             return true;
         }
-
-
-
     }
 
-    class ProcessObr
-    {
-        public ProcessObr(Thread th, CancellationTokenSource can, Config_VS con, int _TimeOut)
-        {
-            Thread = th;
-            Cancel = can;
-            Config = con;
-            TimeOut = _TimeOut;
-        }
-        public Thread Thread { get; set; }
-        public CancellationTokenSource Cancel { get; set; }
+   public class ProcessObrTask
+   {
+       public ProcessObrTask(Task Task, CancellationTokenSource Cancel, ProcessObrTaskParam Param)
+       {
+           this.Cancel = Cancel;
+           this.Task = Task;
+           this.Param = Param;
+       }
 
-        public Config_VS Config { get; set; }
-        public string Text { get; set; }
+       public CancellationTokenSource Cancel { get; set; }
+       public Task Task { get; set; }
+       public ProcessObrTaskParam Param { get; set; }
+       public bool isActiv => this.Task != null && this.Task.Status == TaskStatus.Running;
+       public string ItSystem => Param?.Config?.ItSystem;
+       public string Text => Param?.Text;
+       public SMEV.WCFContract.VS VS => Param.Config.VS;
+   }
 
-        public int TimeOut { get; set; } = 1000;
-    }
+   public class ProcessObrTaskParam
+   {
+       public ProcessObrTaskParam( Config_VS con, int _TimeOut)
+       {
+           Config = con;
+           TimeOut = _TimeOut;
+       }
+       public Config_VS Config { get; set; }
+       public string Text { get; set; }
+       public int TimeOut { get; set; }
+
+
+
+   }
 
 
     public static class EXT

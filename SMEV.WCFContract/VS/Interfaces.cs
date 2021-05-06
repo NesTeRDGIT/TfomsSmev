@@ -14,9 +14,5 @@ namespace SmevAdapterService.VS
         /// <param name="connectionString"></param>
         /// <returns></returns>
         IResponseMessage Answer(string connectionString);
-        /// <summary>
-        /// Сообщение для архива
-        /// </summary>
-        /// <returns></returns>
     }
 }

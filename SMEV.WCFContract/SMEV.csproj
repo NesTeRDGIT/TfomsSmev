@@ -46,6 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="WCFContract\ILogger.cs" />
     <Compile Include="VS\Interfaces.cs" />
     <Compile Include="VS\MedicalCare\newV1_0_0\FeedbackOnMedicalService\FeedbackOnMedicalService.cs" />
     <Compile Include="VS\MedicalCare\newV1_0_0\ListOfMedicalServicesProvided\ListOfMedicalServicesProvided.cs" />
@@ -63,7 +64,7 @@
     <Compile Include="VS\Zags\Zags-Parentzp.cs" />
     <Compile Include="VS\Zags\Zags-Pernamezp.cs" />
     <Compile Include="VS\Zags\Zags-Rogdzp.cs" />
-    <Compile Include="WCFContract.cs" />
+    <Compile Include="WCFContract\WCFContract.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

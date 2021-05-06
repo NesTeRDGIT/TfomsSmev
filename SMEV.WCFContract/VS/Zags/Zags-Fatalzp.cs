@@ -18,23 +18,11 @@ namespace SMEV.VS.Zags
     public class Request_FATALZP : IRequestMessage
     {
         [XmlNamespaceDeclarations]
-        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]
-        { new XmlQualifiedName( "ns2","urn://x-artefacts-zags-fatalzp/root/112-25/4.0.0")});
+        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "ns2","urn://x-artefacts-zags-fatalzp/root/112-25/4.0.0")});
 
-        private Registry registry;
+       
         [XmlElement(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/directive/1.3")]
-        public Registry Registry
-        {
-            get
-            {
-                return registry;
-            }
-
-            set
-            {
-                registry = value;
-            }
-        }
+        public Registry Registry { get; set; }
 
         public IResponseMessage Answer(string connectionString)
         {
@@ -56,39 +44,16 @@ namespace SMEV.VS.Zags
     public class FATALZPResponse : IResponseMessage
     {
         [XmlNamespaceDeclarations]
-        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]
-  { new XmlQualifiedName( "","urn://x-artefacts-zags-fatalzp/root/112-25/4.0.0") });
+        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "","urn://x-artefacts-zags-fatalzp/root/112-25/4.0.0") });
 
-        private string идСведField;
-
-        private FATALZPResponseКодОбр кодОбрField;
+       
 
         [XmlAttribute]
-        public string ИдСвед
-        {
-            get
-            {
-                return идСведField;
-            }
-            set
-            {
-                идСведField = value;
-            }
-        }
+        public string ИдСвед { get; set; }
 
 
         [XmlAttribute]
-        public FATALZPResponseКодОбр КодОбр
-        {
-            get
-            {
-                return кодОбрField;
-            }
-            set
-            {
-                кодОбрField = value;
-            }
-        }
+        public FATALZPResponseКодОбр КодОбр { get; set; }
 
         XElement IResponseMessage.Serialize()
         {
@@ -106,8 +71,6 @@ namespace SMEV.VS.Zags
     [XmlType(AnonymousType = true, Namespace = "urn://x-artefacts-zags-fatalzp/root/112-25/4.0.0")]
     public enum FATALZPResponseКодОбр
     {
-
-
         [XmlEnum("1")]
         Item1
     }

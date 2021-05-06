@@ -7,8 +7,9 @@ using System.Xml.Linq;
 using SMEV.WCFContract;
 
 namespace SmevAdapterService.AdapterLayer.Integration
-{  /// <summary>
-   /// Собщение репазитория
+{  
+    /// <summary>
+   /// Сообщение 
    /// </summary>
     public class MessageIntegration
     {
@@ -53,7 +54,6 @@ namespace SmevAdapterService.AdapterLayer.Integration
                 throw new Exception($"Ошибка проверки каталогов файловой интеграции: {ex.Message}", ex);
             }
         }
-
         public List<MessageIntegration> GetMessage()
         {
             try
@@ -79,10 +79,6 @@ namespace SmevAdapterService.AdapterLayer.Integration
                 throw new Exception($"Ошибка в GetMessage: {ex.Message}", ex);
             }
         }
-
-
- 
-
         /// <summary>
         /// Перенос файлов в папку обработки
         /// </summary>
@@ -131,8 +127,6 @@ namespace SmevAdapterService.AdapterLayer.Integration
                 throw new Exception($"Ошибка в EndProcessMessage: {ex.Message}", ex);
             }
         }
-
-       
         public void ReadMessage(MessageIntegration mes)
         {
             try
@@ -151,12 +145,11 @@ namespace SmevAdapterService.AdapterLayer.Integration
                 throw new Exception($"Ошибка в ReadMessage: {ex.Message}", ex);
             }
         }
-
         public void ErrorMessage(MessageIntegration mes, string perfix_ext = "")
         {
             try
             {
-                //Проверям путь к архиву
+                //Проверим путь к архиву
                 var ArcPath = Path.Combine(Config.ArchiveFolder, DateTime.Now.ToString("yyyy_MM_dd"));
                 var FileName = $"{{{mes.Key}}}.xml";
                 if (!Directory.Exists(ArcPath)) Directory.CreateDirectory(ArcPath);
@@ -207,7 +200,6 @@ namespace SmevAdapterService.AdapterLayer.Integration
         /// Папка архива
         /// </summary>
         public string ArchiveFolder { get; set; }
-
 
     }
     public static class FileManager

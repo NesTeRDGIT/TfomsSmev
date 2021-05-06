@@ -18,25 +18,10 @@ namespace SMEV.VS.Zags4_0_1
     public class Request_PARENTZP : IRequestMessage
     {
         [XmlNamespaceDeclarations]
-        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]
- { new XmlQualifiedName( "ns2","urn://x-artefacts-zags-parent/root/112-27/4.0.1")
-
- });
-        private Registry registry;
-
+        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "ns2","urn://x-artefacts-zags-parent/root/112-27/4.0.1")});
+       
         [XmlElement(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/directive/1.3")]
-        public Registry Registry
-        {
-            get
-            {
-                return registry;
-            }
-
-            set
-            {
-                registry = value;
-            }
-        }
+        public Registry Registry { get; set; }
 
 
 
@@ -59,49 +44,28 @@ namespace SMEV.VS.Zags4_0_1
     public class PARENTZPResponse : IResponseMessage
     {
         [XmlNamespaceDeclarations]
-        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]
-        { new XmlQualifiedName( "","urn://x-artefacts-zags-parent/root/112-27/4.0.1") });
-        private string идСведField;
-
-        private PARENTZPResponseКодОбр кодОбрField;
-
+        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "","urn://x-artefacts-zags-parent/root/112-27/4.0.1") });
 
         [XmlAttribute]
-        public string ИдСвед
-        {
-            get
-            {
-                return идСведField;
-            }
-            set
-            {
-                идСведField = value;
-            }
-        }
-
+        public string ИдСвед { get; set; }
 
         [XmlAttribute]
-        public PARENTZPResponseКодОбр КодОбр
-        {
-            get
-            {
-                return кодОбрField;
-            }
-            set
-            {
-                кодОбрField = value;
-            }
-        }
+        public PARENTZPResponseКодОбр КодОбр { get; set; }
 
         XElement IResponseMessage.Serialize()
         {
-            XmlSerializer xmlSerializer = new XmlSerializer(typeof(PARENTZPResponse));
-            MemoryStream memoryStream = new MemoryStream();
-            XmlTextWriter xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8);
-            xmlTextWriter.Formatting = Formatting.Indented;
-            xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
-            memoryStream.Seek(0, SeekOrigin.Begin);
-            return XElement.Load(memoryStream);
+            var xmlSerializer = new XmlSerializer(typeof(PARENTZPResponse));
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8))
+                {
+                    xmlTextWriter.Formatting = Formatting.Indented;
+                    xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
+                    memoryStream.Seek(0, SeekOrigin.Begin);
+                    return XElement.Load(memoryStream);
+                }
+            }
+          
         }
     }
 

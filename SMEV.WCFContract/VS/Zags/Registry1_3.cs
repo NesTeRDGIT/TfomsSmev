@@ -12,20 +12,8 @@ namespace SMEV.VS.Zags
     [XmlRoot(ElementName = "Registry", Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/directive/1.3", IsNullable = false)]
     public class Registry
     {
-        private RegistryRecord[] registryRecordField;
-
         [XmlElement("RegistryRecord")]
-        public RegistryRecord[] RegistryRecord
-        {
-            get
-            {
-                return registryRecordField;
-            }
-            set
-            {
-                registryRecordField = value;
-            }
-        }
+        public RegistryRecord[] RegistryRecord { get; set; }
     }
 
     [Serializable]
@@ -33,48 +21,11 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/directive/1.3", IsNullable = false)]
     public class RegistryRecord
     {
+        public int RecordId { get; set; }
 
-        private int recordIdField;
+        public Record Record { get; set; }
 
-        private Record recordField;
-
-        private XmlElement recordSignatureField;
-
-        public int RecordId
-        {
-            get
-            {
-                return recordIdField;
-            }
-            set
-            {
-                recordIdField = value;
-            }
-        }
-
-        public Record Record
-        {
-            get
-            {
-                return recordField;
-            }
-            set
-            {
-                recordField = value;
-            }
-        }
-
-        public XmlElement RecordSignature
-        {
-            get
-            {
-                return recordSignatureField;
-            }
-            set
-            {
-                recordSignatureField = value;
-            }
-        }
+        public XmlElement RecordSignature { get; set; }
     }
 
     [Serializable]
@@ -82,88 +33,26 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/directive/1.3", IsNullable = false)]
     public class Record
     {
-
-        private XElement recordContentField;
-
-        private AttachmentHeaderType[] attachmentHeaderListField;
-
-        private RefAttachmentHeaderType[] refAttachmentHeaderListField;
-
-        private XmlElement[] personalSignatureField;
-
-        private string idField;
-
-
-        public XElement RecordContent
-        {
-            get
-            {
-                return recordContentField;
-            }
-            set
-            {
-                recordContentField = value;
-            }
-        }
+        public XElement RecordContent { get; set; }
 
 
 
         [XmlArray(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3")]
         [XmlArrayItem("AttachmentHeader", IsNullable = false)]
-        public AttachmentHeaderType[] AttachmentHeaderList
-        {
-            get
-            {
-                return attachmentHeaderListField;
-            }
-            set
-            {
-                attachmentHeaderListField = value;
-            }
-        }
+        public AttachmentHeaderType[] AttachmentHeaderList { get; set; }
 
 
         [XmlArray(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3")]
         [XmlArrayItem("RefAttachmentHeader", IsNullable = false)]
-        public RefAttachmentHeaderType[] RefAttachmentHeaderList
-        {
-            get
-            {
-                return refAttachmentHeaderListField;
-            }
-            set
-            {
-                refAttachmentHeaderListField = value;
-            }
-        }
+        public RefAttachmentHeaderType[] RefAttachmentHeaderList { get; set; }
 
 
         [XmlElement("PersonalSignature")]
-        public XmlElement[] PersonalSignature
-        {
-            get
-            {
-                return personalSignatureField;
-            }
-            set
-            {
-                personalSignatureField = value;
-            }
-        }
+        public XmlElement[] PersonalSignature { get; set; }
 
 
         [XmlAttribute(DataType = "ID")]
-        public string Id
-        {
-            get
-            {
-                return idField;
-            }
-            set
-            {
-                idField = value;
-            }
-        }
+        public string Id { get; set; }
     }
 
 
@@ -175,217 +64,48 @@ namespace SMEV.VS.Zags
     [XmlType(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3")]
     public class RefAttachmentHeaderType
     {
+        public string uuid { get; set; }
 
-        private string uuidField;
+        public string FileName { get; set; }
 
-        private string fileNameField;
+        public string NamespaceUri { get; set; }
 
-        private string namespaceUriField;
+        public string Hash { get; set; }
 
-        private string hashField;
-
-        private string mimeTypeField;
-
-        private byte[] signaturePKCS7Field;
-
-        private FileType[] archiveField;
-
-        public string uuid
-        {
-            get
-            {
-                return uuidField;
-            }
-            set
-            {
-                uuidField = value;
-            }
-        }
-
-        public string FileName
-        {
-            get
-            {
-                return fileNameField;
-            }
-            set
-            {
-                fileNameField = value;
-            }
-        }
-
-        public string NamespaceUri
-        {
-            get
-            {
-                return namespaceUriField;
-            }
-            set
-            {
-                namespaceUriField = value;
-            }
-        }
-
-        public string Hash
-        {
-            get
-            {
-                return hashField;
-            }
-            set
-            {
-                hashField = value;
-            }
-        }
-
-        public string MimeType
-        {
-            get
-            {
-                return mimeTypeField;
-            }
-            set
-            {
-                mimeTypeField = value;
-            }
-        }
+        public string MimeType { get; set; }
 
         [XmlElement(DataType = "base64Binary")]
-        public byte[] SignaturePKCS7
-        {
-            get
-            {
-                return signaturePKCS7Field;
-            }
-            set
-            {
-                signaturePKCS7Field = value;
-            }
-        }
+        public byte[] SignaturePKCS7 { get; set; }
 
 
         [XmlArrayItem("File", IsNullable = false)]
-        public FileType[] Archive
-        {
-            get
-            {
-                return archiveField;
-            }
-            set
-            {
-                archiveField = value;
-            }
-        }
+        public FileType[] Archive { get; set; }
     }
 
     [Serializable]
     [XmlType(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3")]
     public class FileType
     {
-        private string nameField;
-        private string namespaceUriField;
+        public string Name { get; set; }
 
-        public string Name
-        {
-            get
-            {
-                return nameField;
-            }
-            set
-            {
-                nameField = value;
-            }
-        }
-
-        public string NamespaceUri
-        {
-            get
-            {
-                return namespaceUriField;
-            }
-            set
-            {
-                namespaceUriField = value;
-            }
-        }
+        public string NamespaceUri { get; set; }
     }
 
     [Serializable]
     [XmlType(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3")]
     public class AttachmentHeaderType
     {
+        public string contentId { get; set; }
 
-        private string contentIdField;
+        public string NamespaceUri { get; set; }
 
-        private string namespaceUriField;
-
-        private string mimeTypeField;
-
-        private byte[] signaturePKCS7Field;
-
-        private FileType[] archiveField;
-
-        public string contentId
-        {
-            get
-            {
-                return contentIdField;
-            }
-            set
-            {
-                contentIdField = value;
-            }
-        }
-
-        public string NamespaceUri
-        {
-            get
-            {
-                return namespaceUriField;
-            }
-            set
-            {
-                namespaceUriField = value;
-            }
-        }
-
-        public string MimeType
-        {
-            get
-            {
-                return mimeTypeField;
-            }
-            set
-            {
-                mimeTypeField = value;
-            }
-        }
+        public string MimeType { get; set; }
 
         [XmlElement(DataType = "base64Binary")]
-        public byte[] SignaturePKCS7
-        {
-            get
-            {
-                return signaturePKCS7Field;
-            }
-            set
-            {
-                signaturePKCS7Field = value;
-            }
-        }
+        public byte[] SignaturePKCS7 { get; set; }
 
         [XmlArrayItem("File", IsNullable = false)]
-        public FileType[] Archive
-        {
-            get
-            {
-                return archiveField;
-            }
-            set
-            {
-                archiveField = value;
-            }
-        }
+        public FileType[] Archive { get; set; }
     }
 
     [Serializable]
@@ -393,21 +113,8 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class AttachmentHeaderList
     {
-
-        private AttachmentHeaderType[] attachmentHeaderField;
-
         [XmlElement("AttachmentHeader")]
-        public AttachmentHeaderType[] AttachmentHeader
-        {
-            get
-            {
-                return attachmentHeaderField;
-            }
-            set
-            {
-                attachmentHeaderField = value;
-            }
-        }
+        public AttachmentHeaderType[] AttachmentHeader { get; set; }
     }
 
     [Serializable]
@@ -415,57 +122,19 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class AttachmentContentList
     {
-
-        private AttachmentContentType[] attachmentContentField;
-
         [XmlElement("AttachmentContent")]
-        public AttachmentContentType[] AttachmentContent
-        {
-            get
-            {
-                return attachmentContentField;
-            }
-            set
-            {
-                attachmentContentField = value;
-            }
-        }
+        public AttachmentContentType[] AttachmentContent { get; set; }
     }
 
     [Serializable]
     [XmlType(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3")]
     public class AttachmentContentType
     {
-
-        private string idField;
-
-        private byte[] contentField;
-
         [XmlElement(DataType = "ID")]
-        public string Id
-        {
-            get
-            {
-                return idField;
-            }
-            set
-            {
-                idField = value;
-            }
-        }
+        public string Id { get; set; }
 
         [XmlElement(DataType = "base64Binary")]
-        public byte[] Content
-        {
-            get
-            {
-                return contentField;
-            }
-            set
-            {
-                contentField = value;
-            }
-        }
+        public byte[] Content { get; set; }
     }
 
     [Serializable]
@@ -473,83 +142,21 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class FSAttachmentsList
     {
-
-        private FSAuthInfo[] fSAttachmentField;
-
         [XmlElement("FSAttachment")]
-        public FSAuthInfo[] FSAttachment
-        {
-            get
-            {
-                return fSAttachmentField;
-            }
-            set
-            {
-                fSAttachmentField = value;
-            }
-        }
+        public FSAuthInfo[] FSAttachment { get; set; }
     }
 
     [Serializable]
     [XmlType(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3")]
     public class FSAuthInfo
     {
+        public string uuid { get; set; }
 
-        private string uuidField;
+        public string UserName { get; set; }
 
-        private string userNameField;
+        public string Password { get; set; }
 
-        private string passwordField;
-
-        private string fileNameField;
-
-        public string uuid
-        {
-            get
-            {
-                return uuidField;
-            }
-            set
-            {
-                uuidField = value;
-            }
-        }
-
-        public string UserName
-        {
-            get
-            {
-                return userNameField;
-            }
-            set
-            {
-                userNameField = value;
-            }
-        }
-
-        public string Password
-        {
-            get
-            {
-                return passwordField;
-            }
-            set
-            {
-                passwordField = value;
-            }
-        }
-
-        public string FileName
-        {
-            get
-            {
-                return fileNameField;
-            }
-            set
-            {
-                fileNameField = value;
-            }
-        }
+        public string FileName { get; set; }
     }
 
     [Serializable]
@@ -557,21 +164,8 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class RefAttachmentHeaderList
     {
-
-        private RefAttachmentHeaderType[] refAttachmentHeaderField;
-
         [XmlElement("RefAttachmentHeader")]
-        public RefAttachmentHeaderType[] RefAttachmentHeader
-        {
-            get
-            {
-                return refAttachmentHeaderField;
-            }
-            set
-            {
-                refAttachmentHeaderField = value;
-            }
-        }
+        public RefAttachmentHeaderType[] RefAttachmentHeader { get; set; }
     }
 
     [Serializable]
@@ -579,36 +173,11 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class MessageReference
     {
-
-        private string idField;
-
-        private string valueField;
-
         [XmlAttribute(DataType = "ID")]
-        public string Id
-        {
-            get
-            {
-                return idField;
-            }
-            set
-            {
-                idField = value;
-            }
-        }
+        public string Id { get; set; }
 
         [XmlText]
-        public string Value
-        {
-            get
-            {
-                return valueField;
-            }
-            set
-            {
-                valueField = value;
-            }
-        }
+        public string Value { get; set; }
     }
 
     [Serializable]
@@ -616,66 +185,17 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class AckTargetMessage
     {
-
-        private string idField;
-
-        private bool acceptedField;
-
-        private bool acceptedFieldSpecified;
-
-        private string valueField;
-
         [XmlAttribute(DataType = "ID")]
-        public string Id
-        {
-            get
-            {
-                return idField;
-            }
-            set
-            {
-                idField = value;
-            }
-        }
+        public string Id { get; set; }
 
         [XmlAttribute]
-        public bool accepted
-        {
-            get
-            {
-                return acceptedField;
-            }
-            set
-            {
-                acceptedField = value;
-            }
-        }
+        public bool accepted { get; set; }
 
         [XmlIgnore]
-        public bool acceptedSpecified
-        {
-            get
-            {
-                return acceptedFieldSpecified;
-            }
-            set
-            {
-                acceptedFieldSpecified = value;
-            }
-        }
+        public bool acceptedSpecified { get; set; }
 
         [XmlText]
-        public string Value
-        {
-            get
-            {
-                return valueField;
-            }
-            set
-            {
-                valueField = value;
-            }
-        }
+        public string Value { get; set; }
     }
 
 
@@ -685,84 +205,22 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class MessageTypeSelector
     {
-
-        private string namespaceURIField;
-
-        private string rootElementLocalNameField;
-
-        private DateTime timestampField;
-
-        private string nodeIDField;
-
-        private string idField;
-
-
         [XmlElement(DataType = "anyURI")]
-        public string NamespaceURI
-        {
-            get
-            {
-                return namespaceURIField;
-            }
-            set
-            {
-                namespaceURIField = value;
-            }
-        }
+        public string NamespaceURI { get; set; }
 
 
         [XmlElement(DataType = "NCName")]
-        public string RootElementLocalName
-        {
-            get
-            {
-                return rootElementLocalNameField;
-            }
-            set
-            {
-                rootElementLocalNameField = value;
-            }
-        }
+        public string RootElementLocalName { get; set; }
 
 
-        public DateTime Timestamp
-        {
-            get
-            {
-                return timestampField;
-            }
-            set
-            {
-                timestampField = value;
-            }
-        }
+        public DateTime Timestamp { get; set; }
 
 
-        public string NodeID
-        {
-            get
-            {
-                return nodeIDField;
-            }
-            set
-            {
-                nodeIDField = value;
-            }
-        }
+        public string NodeID { get; set; }
 
 
         [XmlAttribute(DataType = "ID")]
-        public string Id
-        {
-            get
-            {
-                return idField;
-            }
-            set
-            {
-                idField = value;
-            }
-        }
+        public string Id { get; set; }
     }
 
     [Serializable]
@@ -770,38 +228,12 @@ namespace SMEV.VS.Zags
     [XmlRoot(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/basic/1.3", IsNullable = false)]
     public class Timestamp
     {
-
-        private string idField;
-
-        private DateTime valueField;
-
-
         [XmlAttribute(DataType = "ID")]
-        public string Id
-        {
-            get
-            {
-                return idField;
-            }
-            set
-            {
-                idField = value;
-            }
-        }
+        public string Id { get; set; }
 
 
         [XmlText]
-        public DateTime Value
-        {
-            get
-            {
-                return valueField;
-            }
-            set
-            {
-                valueField = value;
-            }
-        }
+        public DateTime Value { get; set; }
     }
 
     #endregion

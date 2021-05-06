@@ -39,21 +39,16 @@ namespace SMEV.WCFContract
         public string ItSystem { get; set; }
         public string Text { get; set; }
     }
-    public enum TypeEntries
+
+
+    public interface IConfigurationManager
     {
-        message = 0,
-        error = 1,
-        warning = 2
+        Configuration config { get; set; }
+        void Save();
+        void Load();
     }
-    /// <summary>
-    /// Мой Entries упрощеный
-    /// </summary>
-    public class EntriesMy
-    {
-        public DateTime TimeGenerated { get; set; }
-        public string Message { get; set; }
-        public TypeEntries Type { get; set; }
-    }
+
+
     public class Configuration : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -600,6 +595,18 @@ namespace SMEV.WCFContract
         public decimal MedservicesSum { get; set; }
      
     }
+
+
+    public interface IPingManager
+    {
+        PingConfig config { get; set; }
+        void Start();
+        void Stop();
+        void LoadConfig();
+        void SaveConfig();
+        PingResult Ping();
+    }
+
 
     [DataContract]
     public class PingConfig

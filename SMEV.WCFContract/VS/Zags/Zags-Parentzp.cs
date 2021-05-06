@@ -16,27 +16,10 @@ namespace SMEV.VS.Zags
     public class Request_PARENTZP : IRequestMessage
     {
         [XmlNamespaceDeclarations]
-        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]
- { new XmlQualifiedName( "ns2","urn://x-artefacts-zags-parent/root/112-27/4.0.0")
-
- });
-        private Registry registry;
-
+        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "ns2","urn://x-artefacts-zags-parent/root/112-27/4.0.0")});
+       
         [XmlElement(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/directive/1.3")]
-        public Registry Registry
-        {
-            get
-            {
-                return registry;
-            }
-
-            set
-            {
-                registry = value;
-            }
-        }
-
-    
+        public Registry Registry { get; set; }
 
         public IResponseMessage Answer(string connectionString)
         {
@@ -57,39 +40,14 @@ namespace SMEV.VS.Zags
     public class PARENTZPResponse : IResponseMessage
     {
         [XmlNamespaceDeclarations]
-        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]
-        { new XmlQualifiedName( "","urn://x-artefacts-zags-parent/root/112-27/4.0.0") });
-        private string идСведField;
-
-        private PARENTZPResponseКодОбр кодОбрField;
+        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "","urn://x-artefacts-zags-parent/root/112-27/4.0.0") });
+    
+        [XmlAttribute]
+        public string ИдСвед { get; set; }
 
 
         [XmlAttribute]
-        public string ИдСвед
-        {
-            get
-            {
-                return идСведField;
-            }
-            set
-            {
-                идСведField = value;
-            }
-        }
-
-
-        [XmlAttribute]
-        public PARENTZPResponseКодОбр КодОбр
-        {
-            get
-            {
-                return кодОбрField;
-            }
-            set
-            {
-                кодОбрField = value;
-            }
-        }
+        public PARENTZPResponseКодОбр КодОбр { get; set; }
 
         XElement IResponseMessage.Serialize()
         {

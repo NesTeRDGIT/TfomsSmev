@@ -61,22 +61,6 @@ namespace SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided
 
         [XmlNamespaceDeclarations]
         public  XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[] { new XmlQualifiedName("ns1", "http://ffoms.ru/ListOfMedicalServicesProvided/1.0.0") });
-        public static InputData CreateTest()
-        {
-            return new InputData()
-            {
-                RegionCode = "79000",
-                FamilyName = "ЕМЕЛИН",
-                FirstName = "ИЛЬЯ",
-                Patronymic = "НИКОЛАЕВИЧ",
-                BirthDate = new DateTime(1964, 02, 28),
-                UnitedPolicyNumber = "3210987654321098",
-                DateFrom = new DateTime(2017, 01, 01),
-                DateTo = new DateTime(2017, 12, 31),
-                orderId = "12345678"
-            };
-        }
-
         /// <summary>
         /// Среда СМЭВ
         /// </summary>

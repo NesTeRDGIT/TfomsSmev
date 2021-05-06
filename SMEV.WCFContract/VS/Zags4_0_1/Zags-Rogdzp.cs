@@ -20,25 +20,10 @@ namespace SMEV.VS.Zags4_0_1
     public class Request_ROGDZP : IRequestMessage
     {
         [XmlNamespaceDeclarations]
-        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]
-{ new XmlQualifiedName( "ns2","urn://x-artefacts-zags-rogdzp/root/112-23/4.0.1")
-
-});
-        private Registry registry;
-
+        public static XmlSerializerNamespaces XmlnsClass = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "ns2","urn://x-artefacts-zags-rogdzp/root/112-23/4.0.1")});
+    
         [XmlElement(Namespace = "urn://x-artefacts-smev-gov-ru/services/message-exchange/types/directive/1.3")]
-        public Registry Registry
-        {
-            get
-            {
-                return registry;
-            }
-
-            set
-            {
-                registry = value;
-            }
-        }
+        public Registry Registry { get; set; }
 
         public IResponseMessage Answer(string connectionString)
         {
@@ -61,50 +46,25 @@ namespace SMEV.VS.Zags4_0_1
     public class ROGDZPResponse : IResponseMessage
     {
         [XmlNamespaceDeclarations]
-        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]
-     { new XmlQualifiedName( "","urn://x-artefacts-zags-rogdzp/root/112-23/4.0.1") });
-
-        private string идСведField;
-
-        private ROGDZPResponseКодОбр кодОбрField;
-
-
+        public XmlSerializerNamespaces Xmlns = new XmlSerializerNamespaces(new[]{ new XmlQualifiedName( "","urn://x-artefacts-zags-rogdzp/root/112-23/4.0.1") });
         [XmlAttribute]
-        public string ИдСвед
-        {
-            get
-            {
-                return идСведField;
-            }
-            set
-            {
-                идСведField = value;
-            }
-        }
-
-
+        public string ИдСвед { get; set; }
         [XmlAttribute]
-        public ROGDZPResponseКодОбр КодОбр
-        {
-            get
-            {
-                return кодОбрField;
-            }
-            set
-            {
-                кодОбрField = value;
-            }
-        }
+        public ROGDZPResponseКодОбр КодОбр { get; set; }
 
         XElement IResponseMessage.Serialize()
         {
-            XmlSerializer xmlSerializer = new XmlSerializer(typeof(ROGDZPResponse));
-            MemoryStream memoryStream = new MemoryStream();
-            XmlTextWriter xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8);
-            xmlTextWriter.Formatting = Formatting.Indented;
-            xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
-            memoryStream.Seek(0, SeekOrigin.Begin);
-            return XElement.Load(memoryStream);
+            var xmlSerializer = new XmlSerializer(typeof(ROGDZPResponse));
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8))
+                {
+                    xmlTextWriter.Formatting = Formatting.Indented;
+                    xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
+                    memoryStream.Seek(0, SeekOrigin.Begin);
+                    return XElement.Load(memoryStream);
+                }
+            }
         }
     }
 
@@ -112,7 +72,6 @@ namespace SMEV.VS.Zags4_0_1
     [XmlType(AnonymousType = true, Namespace = "urn://x-artefacts-zags-rogdzp/root/112-23/4.0.1")]
     public enum ROGDZPResponseКодОбр
     {
-
         [XmlEnum("1")]
         Item1
     }

@@ -652,8 +652,7 @@ namespace AddapterSMEVClient
         private void MenuItem_Click(object sender, RoutedEventArgs e)
         {
 
-            var str = string.Join(Environment.NewLine,
-                listView1.SelectedItems.Cast<EntriesMy>().Select(x =>
+            var str = string.Join(Environment.NewLine,listView1.SelectedItems.Cast<EntriesMy>().Select(x =>
                     $"{x.TimeGenerated:dd.MM.yyyy_HH:mm} - {x.Message}"));
             Clipboard.SetText(str);
         }
