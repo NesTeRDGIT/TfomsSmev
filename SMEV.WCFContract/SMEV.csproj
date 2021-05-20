@@ -46,24 +46,29 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AdapterLayer\XmlClasses\AdapterMessage.cs" />
+    <Compile Include="AdapterLayer\XmlClasses\AdapterMessageCreator.cs" />
+    <Compile Include="WCFContract\IPingManager.cs" />
+    <Compile Include="WCFContract\DBContract.cs" />
+    <Compile Include="WCFContract\IConfigurationManager.cs" />
     <Compile Include="WCFContract\ILogger.cs" />
     <Compile Include="VS\Interfaces.cs" />
     <Compile Include="VS\MedicalCare\newV1_0_0\FeedbackOnMedicalService\FeedbackOnMedicalService.cs" />
     <Compile Include="VS\MedicalCare\newV1_0_0\ListOfMedicalServicesProvided\ListOfMedicalServicesProvided.cs" />
     <Compile Include="VS\MedicalCare\V1_0_0\MedicalCare.cs" />
     <Compile Include="VS\SeDeserializer.cs" />
-    <Compile Include="VS\Zags4_0_1\Zags-Fatalzp.cs" />
-    <Compile Include="VS\Zags4_0_1\Zags-Parentzp.cs" />
-    <Compile Include="VS\Zags4_0_1\Zags-Pernamezp.cs" />
-    <Compile Include="VS\Zags4_0_1\Zags-Rogdzp.cs" />
+    <Compile Include="VS\Zags\V4_0_1\Zags-Fatalzp.cs" />
+    <Compile Include="VS\Zags\V4_0_1\Zags-Parentzp.cs" />
+    <Compile Include="VS\Zags\V4_0_1\Zags-Pernamezp.cs" />
+    <Compile Include="VS\Zags\V4_0_1\Zags-Rogdzp.cs" />
     <Compile Include="VS\Zags\Registry1_3.cs" />
-    <Compile Include="VS\Zags\Zags-Brakrzp.cs" />
-    <Compile Include="VS\Zags\Zags-Brakzrzp.cs" />
-    <Compile Include="VS\Zags\Zags-Brakzzp.cs" />
-    <Compile Include="VS\Zags\Zags-Fatalzp.cs" />
-    <Compile Include="VS\Zags\Zags-Parentzp.cs" />
-    <Compile Include="VS\Zags\Zags-Pernamezp.cs" />
-    <Compile Include="VS\Zags\Zags-Rogdzp.cs" />
+    <Compile Include="VS\Zags\V4_0_0\Zags-Brakrzp.cs" />
+    <Compile Include="VS\Zags\V4_0_0\Zags-Brakzrzp.cs" />
+    <Compile Include="VS\Zags\V4_0_0\Zags-Brakzzp.cs" />
+    <Compile Include="VS\Zags\V4_0_0\Zags-Fatalzp.cs" />
+    <Compile Include="VS\Zags\V4_0_0\Zags-Parentzp.cs" />
+    <Compile Include="VS\Zags\V4_0_0\Zags-Pernamezp.cs" />
+    <Compile Include="VS\Zags\V4_0_0\Zags-Rogdzp.cs" />
     <Compile Include="WCFContract\WCFContract.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

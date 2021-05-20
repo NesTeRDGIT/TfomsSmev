@@ -12,7 +12,47 @@ using SMEV.WCFContract;
 
 namespace SmevAdapterService
 {
-    public class MessageLogger
+    public class SLUCH_REF
+    {
+        public SLUCH_REF(bool _IsMTR, int _SLUCH_Z_ID, int _SLUCH_ID, int? _USL_ID)
+        {
+            IsMTR = _IsMTR;
+            SLUCH_Z_ID = _SLUCH_Z_ID;
+            SLUCH_ID = _SLUCH_ID;
+            USL_ID = _USL_ID;
+
+        }
+        public bool IsMTR { get; set; }
+        public int SLUCH_Z_ID { get; set; }
+        public int SLUCH_ID { get; set; }
+        public int? USL_ID { get; set; }
+    }
+
+    public class Guids
+    {
+        public string GUID_IN { get; set; }
+        public string GUID_OUT { get; set; }
+    }
+    public interface IMessageLogger
+    {
+        int AddInputMessage(MessageLoggerVS VS, string id_message_in, MessageLoggerStatus status_in, string orderid, string applicationid, string comment_in = "");
+        void SetOutMessage(int ID, string id_message_out, MessageLoggerStatus status_out);
+        void SetINMessage(int ID, string id_message_in, MessageLoggerStatus status_in);
+        void UpdateStatusIN(int ID, MessageLoggerStatus status_in);
+        void UpdateCommentIN(int ID, string comment_in);
+        void InsertStatusOut(int log_service_id, MessageLoggerStatus status_out, string comment_out);
+        string GetNewGuidOut();
+        Guids GetGuids(int log_service_id);
+        int? FindIDByMessageOut(string id_message_out);
+        void SetMedpomDataIn(int log_service_id, string familyname, string firstname, string patronymic, DateTime birthdate, DateTime datefrom, DateTime dateto, string unitedpolicynumber, string orderId);
+        void SetFeedbackINFO(SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData InputData, int log_service_id);
+        void SetMedpomDataOut(int log_service_id, List<SLUCH_REF> IDs);
+        List<SLUCH_REF> GetMedpomDataOut(int log_service_id);
+
+
+    }
+
+    public class MessageLogger: IMessageLogger
     {
         string ItSystem;
         string ConnectionString;
@@ -78,26 +118,31 @@ namespace SmevAdapterService
         /// <param name="id_message_out"></param>
         public void SetOutMessage(int ID, string id_message_out, MessageLoggerStatus status_out)
         {
-
+            UpdateOutMessage(ID, id_message_out);
+            InsertStatusOut(ID, MessageLoggerStatus.OUTPUT, "");
+        }
+        private void UpdateOutMessage(int ID,string id_message_out)
+        {
             try
             {
-                var con = new NpgsqlConnection(ConnectionString);
-                var cmd = new NpgsqlCommand(@"update log_service t set id_message_out =  @id_message_out, status_out = @status_out,date_out= @date_out  where t.ID = @ID", con);
-                cmd.Parameters.Add(new NpgsqlParameter("id_message_out", id_message_out));
-                cmd.Parameters.Add(new NpgsqlParameter("status_out", (int)status_out));
-                cmd.Parameters.Add(new NpgsqlParameter("date_out", DateTime.Now));
-
-                cmd.Parameters.Add(new NpgsqlParameter("ID", ID));
-                con.Open();
-                var x = cmd.ExecuteNonQuery();
-                con.Close();
+                using (var con = new NpgsqlConnection(ConnectionString))
+                {
+                    using (var cmd = new NpgsqlCommand(@"update log_service t set id_message_out =  @id_message_out, date_out= @date_out  where t.ID = @ID", con))
+                    {
+                        cmd.Parameters.Add(new NpgsqlParameter("id_message_out", id_message_out));
+                        cmd.Parameters.Add(new NpgsqlParameter("date_out", DateTime.Now));
+                        cmd.Parameters.Add(new NpgsqlParameter("ID", ID));
+                        con.Open();
+                        var x = cmd.ExecuteNonQuery();
+                        con.Close();
+                    }
+                }
             }
             catch (Exception ex)
             {
                 AddLog($"Ошибка обновления истории SetOutMessage[ID[{ID}],id_message_out[{id_message_out}]] : {ex.Message}", LogType.Error);
             }
         }
-
         public void SetINMessage(int ID, string id_message_in, MessageLoggerStatus status_in)
         {
 
@@ -137,7 +182,7 @@ namespace SmevAdapterService
                 AddLog($"Ошибка обновления истории UpdateStatusMessage[ID[{ID}]] : {ex.Message}", LogType.Error);
             }
         }
-        public void UpdateComentIN(int ID, string comment_in)
+        public void UpdateCommentIN(int ID, string comment_in)
         {
             try
             {
@@ -154,84 +199,31 @@ namespace SmevAdapterService
             {
                 AddLog($"Ошибка обновления истории UpdateStatusMessage[ID[{ID}]] : {ex.Message}", LogType.Error);
             }
-        }
-
-        public void UpdateStatusOut(int ID, MessageLoggerStatus status_out)
+        } 
+        public void InsertStatusOut(int log_service_id, MessageLoggerStatus status_out,string comment_out)
         {
             NpgsqlTransaction tran = null;
             try
             {
                 var con = new NpgsqlConnection(ConnectionString);
 
-                var cmd = new NpgsqlCommand(@"update log_service t set status_out =  @status_out where t.ID = @ID", con);
+                var cmd = new NpgsqlCommand(@"INSERT INTO  status_out (log_service_id, status, comment) VALUES (@log_service_id, @status_out, @comment_out)", con);
+                cmd.Parameters.Add(new NpgsqlParameter("log_service_id", log_service_id));
                 cmd.Parameters.Add(new NpgsqlParameter("status_out", (int)status_out));
-                cmd.Parameters.Add(new NpgsqlParameter("ID", ID));
-                con.Open();
-                tran = con.BeginTransaction();
-                var x = cmd.ExecuteNonQuery();
-
-                if (x != 1)
-                {
-                    throw new Exception($"Попытка изменить {x} строк(и)");
-                }
-                tran.Commit();
-                con.Close();
-            }
-            catch (Exception ex)
-            {
-                tran?.Rollback();
-                AddLog($"Ошибка обновления истории UpdateStatusOutMessage[ID[{ID}]] : {ex.Message}", LogType.Error);
-            }
-        }
-        public void UpdateCommentOut(int ID, string comment_out)
-        {
-            NpgsqlTransaction tran = null;
-            try
-            {
-                var con = new NpgsqlConnection(ConnectionString);
-
-                var cmd = new NpgsqlCommand(@"update log_service t set comment_out =  @comment_out where t.ID = @ID", con);
                 cmd.Parameters.Add(new NpgsqlParameter("comment_out", comment_out));
-                cmd.Parameters.Add(new NpgsqlParameter("ID", ID));
                 con.Open();
                 tran = con.BeginTransaction();
                 var x = cmd.ExecuteNonQuery();
-
-                if (x != 1)
-                {
-                    throw new Exception(string.Format("Попытка изменить {0} строк(и)", x));
-                }
                 tran.Commit();
                 con.Close();
             }
             catch (Exception ex)
             {
                 tran?.Rollback();
-                AddLog($"Ошибка обновления истории UpdateStatusOutMessage[ID[{ID}]] : {ex.Message}", LogType.Error);
+                AddLog($"Ошибка вставки статуса  InsertStatusOut[ID[{log_service_id}]] : {ex.Message}", LogType.Error);
             }
         }
-
-        public MessageLoggerStatus? GetSTATUS_OUT(int ID)
-        {
-            try
-            {
-                var con = new NpgsqlConnection(ConnectionString);
-                var cmd = new NpgsqlDataAdapter(@"select status_out from log_service t where t.ID = @ID", con);
-                cmd.SelectCommand.Parameters.Add(new NpgsqlParameter("ID", ID));
-                var tbl = new DataTable();
-                cmd.Fill(tbl);
-                return tbl.Rows.Count != 0
-                    ? (MessageLoggerStatus?)(MessageLoggerStatus)Convert.ToInt32(tbl.Rows[0][0])
-                    : null;
-            }
-            catch (Exception ex)
-            {
-                AddLog($"Ошибка обновления истории GetSTATUS_OUT[ID[{ID}]] : {ex.Message}", LogType.Error);
-                return null;
-            }
-        }
-
-        public string GetGuidOut()
+        public string GetNewGuidOut()
         {
             try
             {
@@ -261,11 +253,7 @@ namespace SmevAdapterService
             {
                 throw new Exception(string.Format("Ошибка в GetGuidOut: {0}", ex.Message, ex));
             }
-
-
-
         }
-
         public int? FindIDByMessageOut(string id_message_out)
         {
             try
@@ -292,7 +280,6 @@ namespace SmevAdapterService
             }
 
         }
-
         public void SetMedpomDataIn(int log_service_id, string familyname, string firstname, string patronymic, DateTime birthdate, DateTime datefrom, DateTime dateto, string unitedpolicynumber, string orderId)
         {
             try
@@ -324,7 +311,6 @@ VALUES (@log_service_id,@familyname, @firstname, @patronymic, @birthdate, @datef
                 throw new Exception(string.Format("Ошибка в SetMedpomDataIn: {0}", ex.Message, ex));
             }
         }
-
         public void SetFeedbackINFO(SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData InputData, int log_service_id)
         {
             try
@@ -374,24 +360,7 @@ VALUES (@log_service_id,@familyname, @firstname, @patronymic, @birthdate, @datef
             {
                 throw new Exception($"Ошибка в SetFeedbackINFO: {ex.Message}");
             }
-        }
-
-        public class SLUCH_REF
-        {
-            public SLUCH_REF(bool _IsMTR, int _SLUCH_Z_ID, int _SLUCH_ID, int? _USL_ID)
-            {
-                IsMTR = _IsMTR;
-                SLUCH_Z_ID = _SLUCH_Z_ID;
-                SLUCH_ID = _SLUCH_ID;
-                USL_ID = _USL_ID;
-
-            }
-            public bool IsMTR { get; set; }
-            public int SLUCH_Z_ID { get; set; }
-            public int SLUCH_ID { get; set; }
-            public int? USL_ID { get; set; }
-        }
-
+        }       
         public void SetMedpomDataOut(int log_service_id, List<SLUCH_REF> IDs)
         {
             try
@@ -430,6 +399,55 @@ VALUES
                 throw new Exception(string.Format("Ошибка в SetMedpomDataOut: {0}", ex.Message, ex));
             }
         }
+        public Guids GetGuids(int log_service_id)
+        {
+            try
+            {
+                using (var con = new NpgsqlConnection(ConnectionString))
+                {
+                    using (var oda = new NpgsqlDataAdapter(@"select id_message_out, id_message_in from log_service t where t.ID = @log_service_id", con))
+                    {
+                        oda.SelectCommand.Parameters.Add(new NpgsqlParameter("log_service_id", log_service_id));
+                        var tbl = new DataTable();
+                        oda.Fill(tbl);
+                        if (tbl.Rows.Count != 0)
+                            return new Guids { GUID_IN = tbl.Rows[0]["id_message_in"].ToString(), GUID_OUT = tbl.Rows[0]["id_message_out"].ToString(), };
+                        return null;
+                    }
 
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(string.Format("Ошибка в GetGuids: {0}", ex.Message, ex));
+            }
+        }
+
+        public List<SLUCH_REF> GetMedpomDataOut(int log_service_id)
+        {
+            try
+            {
+                using (var con = new NpgsqlConnection(ConnectionString))
+                {
+                    using (var oda = new NpgsqlDataAdapter(@"select sluch_z_id,  sluch_id,  usl_id, ismtr from medpom_data_out t where t.log_service_id = @log_service_id", con))
+                    {
+                        oda.SelectCommand.Parameters.Add(new NpgsqlParameter("log_service_id", log_service_id));
+                        var tbl = new DataTable();
+                        oda.Fill(tbl);
+                        var res = new List<SLUCH_REF>();
+                        foreach(DataRow row in tbl.Rows)
+                        {
+                            var sr = new SLUCH_REF(Convert.ToBoolean(row["ismtr"]), Convert.ToInt32(row["sluch_z_id"]), Convert.ToInt32(row["sluch_id"]), row["usl_id"] != DBNull.Value ? Convert.ToInt32(row["USL_ID"]) :(int?)null);
+                            res.Add(sr);
+                        }
+                        return res;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(string.Format("Ошибка в GetGuids: {0}", ex.Message, ex));
+            }
+        }
     }
 }

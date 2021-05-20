@@ -1,21 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.ServiceModel;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
+using System.Xml;
+using System.Xml.Linq;
+using System.Xml.Serialization;
+using AddapterSMEVClient.Annotations;
 using AddapterSMEVClient.Class;
-using ExcelManager;
-using Microsoft.Win32;
-using SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService;
 using SMEV.WCFContract;
-using Image = System.Windows.Controls.Image;
 
 namespace AddapterSMEVClient
 {
@@ -24,101 +29,80 @@ namespace AddapterSMEVClient
     /// </summary>
     public partial class MainWindow : INotifyPropertyChanged
     {
-        public static IWcfInterface wcf;
-       private MyServiceCallback cal;
-
-        System.Windows.Forms.NotifyIcon ni = new System.Windows.Forms.NotifyIcon();
-
-        private bool close = false;
+        public MainWindowVM VM { get; set; } = new MainWindowVM(new ReportExport());
+        public static IWcfInterface wcf { get; set; }
+        private MyServiceCallback cal { get; set; }
+        private bool close { get; set; }
         public MainWindow()
         {
-          
-            var f = new LoginForm();
+            VM.SetDispatcher(this.Dispatcher);
+            if (ConnectWCF())
+                CreateNotifyIcon();
+            InitializeComponent();
+
+        }
+        private void CloseAPP(bool Shutdown = true)
+        {
+            close = true;
+            ni.Visible = false;
+            ni.Dispose();
+            CTSPinging?.Cancel();
+            if (Shutdown)
+                Application.Current.Shutdown();
+        }
+
+        private bool ConnectWCF(string DIALOG_MESSAGE = null)
+        {
+            var f = new LoginForm() { DIALOG_MESSAGE = DIALOG_MESSAGE };
             if (f.ShowDialog() == true)
             {
-
                 wcf = f.MyWcfConnection;
                 cal = f.callback;
                 cal.ePingResult += Cal_ePingResult;
-                ((ICommunicationObject) wcf).Faulted += LoginForm_Faulted;
-                ((ICommunicationObject) wcf).Closed += LoginForm_Faulted;
-                //LoginForm.SMOKOD = t[4].ToString();
-                ni.Text = this.Title;
-                ni.Visible = false;
-               
-                ni.Icon = Properties.Resources.MainIcon;
-
-
-
-
-
-                ni.ContextMenu = new System.Windows.Forms.ContextMenu(new[] {
-                    new System.Windows.Forms.MenuItem("Развернуть",  delegate
-                    {
-                        this.Show();
-                        ni.Visible = false;
-                        this.WindowState = WindowState.Normal;
-
-                    }){DefaultItem = true},
-
-                    new System.Windows.Forms.MenuItem("-"),
-
-                    new System.Windows.Forms.MenuItem("Закрыть", delegate
-                    {
-                        close = true;
-                        System.Windows.Application.Current.Shutdown();
-                    })
-                });
-
-
-
-
-                ni.DoubleClick +=
-                    delegate
-                    {
-                        this.Show();
-                        ni.Visible = false;
-                        this.WindowState = WindowState.Normal;
-                    };
+                ((ICommunicationObject)wcf).Faulted += LoginForm_Faulted;
+                ((ICommunicationObject)wcf).Closed += LoginForm_Faulted;
+                VM.SetWCF(wcf);
+                return true;
             }
-            else
-            {
-                MessageBox.Show("Отключение");
-                Application.Current.Shutdown();
-                return;
-            }
-
-            InitializeComponent();
-
-
+            MessageBox.Show("Отключение");
+            CloseAPP();
+            return false;
         }
 
+        System.Windows.Forms.NotifyIcon ni = new System.Windows.Forms.NotifyIcon();
+        private void CreateNotifyIcon()
+        {
+            ni.Text = this.Title;
+            ni.Visible = false;
+            ni.Icon = Properties.Resources.MainIcon;
+            ni.ContextMenu = new System.Windows.Forms.ContextMenu(new[] {
+                new System.Windows.Forms.MenuItem("Развернуть",  delegate
+                {
+                    this.Show();
+                    ni.Visible = false;
+                    this.WindowState = WindowState.Normal;
 
-
-        CollectionViewSource ConfigViewSource;
-
+                }){DefaultItem = true},
+                new System.Windows.Forms.MenuItem("-"),
+                new System.Windows.Forms.MenuItem("Закрыть", delegate
+                {
+                    close = true;
+                    System.Windows.Application.Current.Shutdown();
+                })
+            });
+            ni.DoubleClick +=
+                delegate
+                {
+                    this.Show();
+                    ni.Visible = false;
+                    this.WindowState = WindowState.Normal;
+                };
+        }
         void LoginForm_Faulted(object sender, EventArgs e)
         {
             Dispatcher?.Invoke(() =>
             {
-                var f = new LoginForm {DIALOG_MESSAGE = "Связь с сервером потеряна!"};
-
-
-                if (f.ShowDialog() == true)
-                {
-                    wcf = f.MyWcfConnection;
-                    cal = f.callback;
-                    cal.ePingResult += Cal_ePingResult;
-                    ((ICommunicationObject) wcf).Faulted += LoginForm_Faulted;
-                    ((ICommunicationObject) wcf).Closed += LoginForm_Faulted;
-
-                }
-                else
-                {
-                    MessageBox.Show("Отключение");
-                    Application.Current.Shutdown();
-                }
-
+                ConnectWCF("Связь с сервером потеряна!");
             });
         }
 
@@ -133,90 +117,30 @@ namespace AddapterSMEVClient
                     win.Show();
 
                 });
-
             }
             Dispatcher.Invoke(() =>
             {
                 win.AddPingResult(PR);
                 win.Activate();
-
             });
-
-           
-
-          
         }
 
 
         private PingView GetPingView()
         {
             PingView r_f = null;
-            Dispatcher?.Invoke(new Action(() =>
+            Dispatcher?.Invoke(() =>
             {
                 foreach (Window f in Application.Current.Windows)
                 {
-                    if (f is PingView)
+                    if (f is PingView view)
                     {
-                        r_f = f as PingView;
+                        r_f = view;
                     }
                 }
-            }));
+            });
             return r_f;
         }
-
-        Configuration _Configuration;
-
-        public Configuration Configuration
-        {
-            get { return _Configuration; }
-            set
-            {
-                _Configuration = value;
-                RaisePropertyChanged("Configuration");
-            }
-        }
-
-        private void buttonSetting_Click(object sender, RoutedEventArgs e)
-        {
-            buttonSetting.IsEnabled = false;
-
-            Task.Factory.StartNew(() =>
-            {
-                try
-                {
-                    var t = wcf.GetConfig();
-                    Dispatcher?.Invoke(() => { Configuration = t; });
-
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка получения конфигурации: {ex.Message}");
-                }
-                finally
-                {
-                    Dispatcher?.Invoke(() => { buttonSetting.IsEnabled = true; });
-                }
-            });
-
-
-
-        }
-
-
-
-        private void button_Copy_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                wcf.SetConfig(Configuration);
-                MessageBox.Show("ОК");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка передачи конфигурации на сервер: {ex.Message}");
-            }
-        }
-
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -225,212 +149,15 @@ namespace AddapterSMEVClient
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
-        private void button1_Click(object sender, RoutedEventArgs e)
-        {
-            var t = ConfigViewSource.View?.CurrentItem as Config_VS;
-            if (t == null) return;
-            var fbd = new FolderDialog(t.FilesConfig.ArchiveFolder);
-            if (fbd.ShowDialog() == true)
-            {
-                t.FilesConfig.ArchiveFolder = fbd.SelectedPath;
-            }
-        }
 
-        private void button1_Copy_Click(object sender, RoutedEventArgs e)
-        {
-
-            var t = (ConfigViewSource.View.CurrentItem as Config_VS);
-            if (t == null) return;
-            var fbd = new FolderDialog(t.FilesConfig.InputFolder);
-            if (fbd.ShowDialog() == true)
-            {
-                t.FilesConfig.InputFolder = fbd.SelectedPath;
-            }
-        }
-
-        private void button1_Copy1_Click(object sender, RoutedEventArgs e)
-        {
-
-            var t = (ConfigViewSource.View.CurrentItem as Config_VS);
-            if (t == null) return;
-            var fbd = new FolderDialog(t.FilesConfig.OutputFolder);
-            if (fbd.ShowDialog() == true)
-            {
-                t.FilesConfig.OutputFolder = fbd.SelectedPath;
-            }
-        }
-
-        private void button1_Copy2_Click(object sender, RoutedEventArgs e)
-        {
-
-            var t = (ConfigViewSource.View.CurrentItem as Config_VS);
-            if (t != null)
-            {
-                var fbd = new FolderDialog(t.FilesConfig.PoccessFolder);
-                if (fbd.ShowDialog() == true)
-                {
-                    t.FilesConfig.PoccessFolder = fbd.SelectedPath;
-                }
-            }
-        }
-
-        private void button1_Copy3_Click(object sender, RoutedEventArgs e)
-        {
-            var t = (ConfigViewSource.View.CurrentItem as Config_VS);
-            if (t == null) return;
-            var fbd = new FolderDialog(t.TranspotrMessage);
-            if (fbd.ShowDialog() == true)
-            {
-                t.TranspotrMessage = fbd.SelectedPath;
-            }
-        }
-
-        List<EntriesMy> _LogService = new List<EntriesMy>();
-
-        public List<EntriesMy> LogService
-        {
-            get { return _LogService; }
-            set
-            {
-                _LogService = value;
-                RaisePropertyChanged("LogService");
-            }
-        }
-
-
-
-        private void buttonLogRefresh_Click(object sender, RoutedEventArgs e)
-        {
-            buttonLogRefresh.IsEnabled = false;
-
-            Task.Factory.StartNew(() =>
-            {
-                try
-                {
-                    var k = 50;
-                    var HideWar = true;
-                    Dispatcher?.Invoke(() => { k = Convert.ToInt32(textBoxCountLog.Text);
-                        HideWar = checkBoxHideWarning.IsChecked == true;
-                    });
-                    var t = wcf.GetEventLogEntry(k, HideWar);
-                    Dispatcher?.Invoke(() => { LogService = t; });
-
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка получения лога сервиса: {ex.Message}");
-                }
-                finally
-                {
-                    Dispatcher?.Invoke(() => { buttonLogRefresh.IsEnabled = true; });
-                }
-            });
-
-
-        }
-
-        List<VSWorkProcess> _DoWork = new List<VSWorkProcess>();
-
-        public List<VSWorkProcess> DoWork
-        {
-            get { return _DoWork; }
-            set
-            {
-                _DoWork = value;
-                RaisePropertyChanged("DoWork");
-            }
-        }
-
-        private void buttonStatus_Click(object sender, RoutedEventArgs e)
-        {
-            buttonStatus.IsEnabled = false;
-            Task.Factory.StartNew(() =>
-            {
-                try
-                {
-                    var t = wcf.GetDoWork();
-                    Dispatcher?.Invoke(() => { DoWork = t; });
-
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка получения процессов сервиса: {ex.Message}");
-                }
-                finally
-                {
-                    Dispatcher?.Invoke(() => { buttonStatus.IsEnabled = true; });
-                }
-            });
-
-
-        }
-
-        List<LogRow> _LogMessage = new List<LogRow>();
-
-        public List<LogRow> LogMessage
-        {
-            get { return _LogMessage; }
-            set
-            {
-                _LogMessage = value;
-                RaisePropertyChanged("LogMessage");
-            }
-        }
-
-        private void buttonLogMessage_Click(object sender, RoutedEventArgs e)
-        {
-
-            int Count;
-            DateTime? date_in;
-            DateTime? date_out;
-            MessageLoggerVS[] vs;
-            try
-            {
-                Count = Convert.ToInt32(textBoxLogMessageCount.Text);
-                date_in = DataIN.SelectedDate;
-                date_out = DataOUT.SelectedDate;
-                vs = comboBoxVSMessage.SelectedItems.Cast<MessageLoggerVS>().ToArray();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка разбора кол-ва: {ex.Message}");
-                return;
-            }
-
-            buttonLogMessage.IsEnabled = false;
-            Task.Factory.StartNew(() =>
-            {
-                try
-                {
-                    var t = wcf.GetLog(Count, vs, date_in, date_out);
-                    Dispatcher?.Invoke(() => { LogMessage = t; });
-
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка получения лога сообщений: {ex.Message}");
-                }
-                finally
-                {
-                    Dispatcher?.Invoke(() => { buttonLogMessage.IsEnabled = true; });
-                }
-            });
-
-        }
-
-        Thread PingThread;
-
+        private CancellationTokenSource CTSPinging = new CancellationTokenSource();
         private void this_Loaded(object sender, RoutedEventArgs e)
         {
-
             try
             {
-                ConfigViewSource = FindResource("ConfigViewSource") as CollectionViewSource;
                 DTReportE.SelectedDate = DateTime.Now;
                 DTReportB.SelectedDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-
-                PingThread = new Thread(Pinging) {IsBackground = true};
-                PingThread.Start();
+                Task.Run(() => Pinging(CTSPinging.Token));
             }
             catch (Exception ex)
             {
@@ -439,236 +166,57 @@ namespace AddapterSMEVClient
 
         }
 
-        private void Pinging()
+        private void Pinging(CancellationToken cancel)
         {
-            while (true)
+            while (!cancel.IsCancellationRequested)
             {
                 try
                 {
-                    var state = ((ICommunicationObject) wcf).State;
+                    var state = ((ICommunicationObject)wcf).State;
                     if (state == CommunicationState.Opened)
                     {
                         wcf.Ping();
                     }
+                    Delay(1800000, cancel);
+                }
+                catch (OperationCanceledException)
+                {
 
                 }
                 catch (Exception ex)
                 {
                     Dispatcher?.Invoke(() =>
                     {
-                        MessageBox.Show("Не удалось подтвердить связь с сервером: " + ex.Message);
+                        MessageBox.Show($"Не удалось подтвердить связь с сервером: {ex.Message}");
                     });
-                    return;
                 }
-
-                Thread.Sleep(1800000);
-            }
-           
-        }
-    
-
-    private void tabControl1_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (e.Source is TabControl)
-            {
-                if (LogServiceTab.IsSelected)
-                    buttonLogRefresh_Click(buttonLogRefresh, new RoutedEventArgs());
-                if (LogMessageTab.IsSelected)
-                    buttonLogMessage_Click(buttonLogMessage, new RoutedEventArgs());
-                if (StatusServiceTab.IsSelected)
-                    buttonStatus_Click(buttonStatus, new RoutedEventArgs());
-                if (SettingTab.IsSelected)
-                    buttonSetting_Click(buttonSetting, new RoutedEventArgs());
-                if(PingTab.IsSelected)
-                    ButtonGetPingParameter_Click(ButtonGetPingParameter, new RoutedEventArgs());
-            }
-
-        }
-
-        private void DataIN_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
-        {
-            buttonLogMessage_Click(buttonLogMessage, new RoutedEventArgs());
-        }
-
-        private void comboBoxVSMessage_OnSelectionChange()
-        {
-            buttonLogMessage_Click(buttonLogMessage, new RoutedEventArgs());
-        }
-        public LogRow UslLogRow
-        {
-            get
-            {
-                if (DataGridMessage == null) return null;
-                if (DataGridMessage.SelectedCells.Count == 0)
-                    return null;
-                return DataGridMessage.SelectedCells[0].Item as LogRow;
             }
         }
 
-        public IEnumerable<LogRow> SelectedUslLogRow
+        private void Delay(int MS, CancellationToken cancel)
         {
-            get
-            {
-                if (DataGridMessage == null) return null;
-                if (DataGridMessage.SelectedCells.Count == 0)
-                    return null;
-                return DataGridMessage.SelectedCells.Select(x=>(LogRow)x.Item).Distinct();
-            }
+            var task = Task.Delay(MS, cancel);
+            task.Wait(cancel);
         }
 
-        private void listBox12_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (UslLogRow == null) return;
-            switch (UslLogRow.VS)
-            {
-                case MessageLoggerVS.InputData:
-                    var ViewMP = new ViewMP(UslLogRow.ID);
-                    ViewMP.Show();
-                    break;
-                case MessageLoggerVS.FeedbackOnMedicalService:
-                    var ViewFeedBack = new ViewFeedBack(UslLogRow.ID,UslLogRow.OrderId,UslLogRow.ApplicationId);
-                    ViewFeedBack.Show();
-                    break;
-            }
-          
-        }
-
-        List<ReportRow> _Report = new List<ReportRow>();
-        public List<ReportRow> Report
-        {
-            get
-            {
-                return _Report;
-            }
-            set
-            {
-                _Report = value;
-                RaisePropertyChanged("Report");
-            }
-        }
-
-        private DateTime ds;
-        private DateTime de;
-
-        private void buttonReportUpdate_Click(object sender, RoutedEventArgs e)
-        {
-            if (!DTReportB.SelectedDate.HasValue || !DTReportE.SelectedDate.HasValue) return;
-
-            buttonReportUpdate.IsEnabled = false;
-            ds = DTReportB.SelectedDate.Value;
-            de = DTReportE.SelectedDate.Value;
-            Task.Factory.StartNew(() =>
-            {
-                try
-                {
-                    var t = wcf.GetReport(ds, de);
-                    Dispatcher?.Invoke(() => { Report = t; });
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка получения отчета: {ex.Message}");
-                }
-                finally
-                {
-                    Dispatcher?.Invoke(() => { buttonReportUpdate.IsEnabled = true; });
-                }
-            });
-        }
-
-        SaveFileDialog sfd = new SaveFileDialog { Filter = "*.xlsx|*.xlsx" };
-        private void buttonReportToExcel_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if(Report.Count!=0)
-                {
-                    sfd.FileName =
-                        $"Запросы медицинской помощи СМЭВ с {ds.ToShortDateString()} по {de.ToShortDateString()}";
-                    if(sfd.ShowDialog() == true)
-                    {
-                        var excel = new ExcelOpenXML(sfd.FileName, "Данные");
-                        var styleDef = excel.CreateType(new FontOpenXML(), new BorderOpenXML(), null);
-                        var styleBold = excel.CreateType(new FontOpenXML { Bold = true }, new BorderOpenXML(), null);
-
-                        var styleDt = excel.CreateType(new FontOpenXML {  Format = Convert.ToUInt32(DefaultNumFormat.F14) }, new BorderOpenXML(), null);
 
 
-                        uint RowIndex = 1;
-                        var row = excel.GetRow(RowIndex);
-                        excel.PrintCell(row, 1, "Дата", styleBold);
-                        excel.PrintCell(row, 2, "Кол-во запросов", styleBold);
-                        excel.PrintCell(row, 3, "Кол-во людей", styleBold);
-                        excel.PrintCell(row, 4, "Кол-во возвращенных услуг", styleBold);
-                        excel.PrintCell(row, 5, "Отвечено", styleBold);
-                        excel.PrintCell(row, 6, "Ошибок", styleBold);
-                        excel.PrintCell(row, 7, "Без ответа", styleBold);
-
-                        foreach(var r in Report)
-                        {
-                            RowIndex++;
-                            row = excel.GetRow(RowIndex);
-
-                            var curr_style = r.dt.HasValue ? styleDef : styleBold;
-                            if(r.dt.HasValue)
-                                excel.PrintCell(row, 1,r.dt.Value, styleDt);
-                            else
-                                excel.PrintCell(row, 1, "Итого", curr_style);
-
-                            excel.PrintCell(row, 2, Convert.ToDouble(r.Count), curr_style);
-                            excel.PrintCell(row, 3, Convert.ToDouble(r.People), curr_style);
-                            excel.PrintCell(row, 4, Convert.ToDouble(r.USL), curr_style);
-                            excel.PrintCell(row, 5, Convert.ToDouble(r.Answer), curr_style);
-                            excel.PrintCell(row, 6, Convert.ToDouble(r.Error), curr_style);
-                            excel.PrintCell(row, 7, Convert.ToDouble(r.noAnswer), curr_style);
-                        }
-
-                        excel.AutoSizeColumns(1, 7);
-
-
-                        excel.Save();
-                 
-                        if (MessageBox.Show("Формирование счета завершено. Показать файл?", "", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
-                        {
-                            ShowSelectedInExplorer.FileOrFolder(sfd.FileName);
-                        }
-
-                    }
-                }
-               
-                
-            }
-            catch(Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
-        }
-
-        private void buttonReportToExcel_Copy_Click(object sender, RoutedEventArgs e)
-        {
-            DTReportE.SelectedDate = DateTime.Now;
-            DTReportB.SelectedDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-        }
 
         private void MenuItem_Click(object sender, RoutedEventArgs e)
         {
-
-            var str = string.Join(Environment.NewLine,listView1.SelectedItems.Cast<EntriesMy>().Select(x =>
-                    $"{x.TimeGenerated:dd.MM.yyyy_HH:mm} - {x.Message}"));
-            Clipboard.SetText(str);
-        }
-
-        private void buttonUserOutMessage_Click(object sender, RoutedEventArgs e)
-        {
-            var t = (ConfigViewSource.View.CurrentItem as Config_VS);
-            if (t == null) return;
-            var fbd = new FolderDialog(t.UserOutMessage);
-            if (fbd.ShowDialog() == true)
+            try
             {
-                t.UserOutMessage = fbd.SelectedPath;
+                var str = string.Join(Environment.NewLine, listView1.SelectedItems.Cast<EntriesMyVM>().Select(x => $"{x.TimeGenerated:dd.MM.yyyy_HH:mm} - {x.Message}"));
+                Clipboard.SetText(str);
             }
-
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
             
         }
+
+
 
         private void this_Closing(object sender, CancelEventArgs e)
         {
@@ -676,6 +224,10 @@ namespace AddapterSMEVClient
             {
                 e.Cancel = true;
                 WindowState = WindowState.Minimized;
+            }
+            else
+            {
+                CloseAPP(false);
             }
         }
 
@@ -691,74 +243,708 @@ namespace AddapterSMEVClient
                 ni.ShowBalloonTip(1000);
             }
         }
-        
 
-        private void ButtonGetPingParameter_Click(object sender, RoutedEventArgs e)
+        public MessageLoggerVS[] SelectedMessageLoggerVS => comboBoxVSMessage?.SelectedItems.Cast<MessageLoggerVS>().ToArray();
+
+        private void ComboBoxVSMessage_OnDropDownClosed(object sender, RoutedEventArgs e)
+        {
+            RaisePropertyChanged(nameof(SelectedMessageLoggerVS));
+            VM.RefreshLogMessageParam.VS = SelectedMessageLoggerVS;
+        }
+
+        public LogRow[] SelectedLogItems => DataGridMessage.SelectedCells.Select(x => (LogRow)x.Item).Distinct().ToArray();
+        private void DataGridMessage_OnSelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)
+        {
+            RaisePropertyChanged(nameof(SelectedLogItems));
+        }
+
+        private void ButtonSetCurrentPeriod_OnClick(object sender, RoutedEventArgs e)
+        {
+            DTReportE.SelectedDate = DateTime.Now;
+            DTReportB.SelectedDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        }
+
+        public ICommand CloseAppCommand => new Command(obj =>
+        {
+            this.CloseAPP();
+        });
+
+    }
+
+    public class MainWindowVM : INotifyPropertyChanged
+    {
+        private IReportExport reportExport { get; set; }
+        private IWcfInterface wcf { get; set; }
+        private Dispatcher dispatcher { get; set; }
+        public MainWindowVM(IReportExport reportExport)
+        {
+            this.reportExport = reportExport;
+        }
+
+        public MainWindowVM SetWCF(IWcfInterface wcf)
+        {
+            this.wcf = wcf;
+            RefreshLogServiceCommand.Execute(null);
+            return this;
+        }
+        public MainWindowVM SetDispatcher(Dispatcher dispatcher)
+        {
+            this.dispatcher = dispatcher;
+            return this;
+        }
+
+        #region LogService
+        private ObservableCollection<EntriesMyVM> _LogService = new ObservableCollection<EntriesMyVM>();
+        public ObservableCollection<EntriesMyVM> LogService
+        {
+            get => _LogService;
+            set
+            {
+                _LogService = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _RefreshingLogService;
+        public bool RefreshingLogService
+        {
+            get => _RefreshingLogService;
+            set
+            {
+                _RefreshingLogService = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        private int _LimitLog = 50;
+        public int LimitLog
+        {
+            get => _LimitLog;
+            set
+            {
+                _LimitLog = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _HideWarningLog = true;
+        public bool HideWarningLog
+        {
+            get => _HideWarningLog;
+            set
+            {
+                _HideWarningLog = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        public ICommand RefreshLogServiceCommand => new Command(obj =>
         {
             try
             {
-                var p = wcf.PingParamGet();
-                textBoxPingAdress.Text = p.Adress;
-                CheckBoxPingEnabled.IsChecked = p.IsEnabled;
-                textBoxPingTimeout.Text = p.TimeOut.ToString();
-                textBoxNameProcess.Text = string.Join(Environment.NewLine, p.Process);
+                RefreshingLogService = true;
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        var t = wcf.GetEventLogEntry(LimitLog, HideWarningLog);
+                        dispatcher.Invoke(() =>
+                        {
+                            LogService.Clear();
+                           // LogService.Add(new EntriesMyVM(new EntriesMy(){Message = "asd \n dasda" }));
+                            foreach (var item in t)
+                            {
+                                LogService.Add(new EntriesMyVM(item));
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка получения лога сервиса: {ex.Message}");
+                    }
+                    finally
+                    {
+                        dispatcher.Invoke(() => { RefreshingLogService = false; });
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка получения лога сервиса: {ex.Message}");
+                RefreshingLogService = false;
+            }
+        }, obj => !RefreshingLogService);
+        #endregion
+        #region DoWork
+        ObservableCollection<VSWorkProcess> _DoWork = new ObservableCollection<VSWorkProcess>();
+        public ObservableCollection<VSWorkProcess> DoWork
+        {
+            get => _DoWork;
+            set
+            {
+                _DoWork = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _RefreshingDoWork;
+        public bool RefreshingDoWork
+        {
+            get => _RefreshingDoWork;
+            set
+            {
+                _RefreshingDoWork = value;
+                RaisePropertyChanged();
+            }
+        }
+        public ICommand RefreshDoWorkCommand => new Command(obj =>
+        {
+            try
+            {
+                RefreshingDoWork = true;
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        var t = wcf.GetDoWork();
+                        dispatcher.Invoke(() =>
+                        {
+                            DoWork.Clear();
+                            foreach (var item in t)
+                            {
+                                DoWork.Add(item);
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка получения процессов сервиса: {ex.Message}");
+                    }
+                    finally
+                    {
+                        dispatcher.Invoke(() => { RefreshingDoWork = false; });
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка получения процессов сервиса: {ex.Message}");
+                RefreshingDoWork = false;
+            }
+        }, obj => !RefreshingDoWork);
+        public ICommand ChangeActiveCommand => new Command(obj =>
+        {
+            try
+            {
+                var VS = (VSWorkProcess)obj;
+                wcf.ChangeActivProcess(VS.VS, !VS.Activ);
+                RefreshDoWorkCommand.Execute(null);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
+        });
+        #endregion
+        #region LogMessage
+        ObservableCollection<LogRow> _LogMessage = new ObservableCollection<LogRow>();
+        public ObservableCollection<LogRow> LogMessage
+        {
+            get => _LogMessage;
+            set
+            {
+                _LogMessage = value;
+                RaisePropertyChanged();
+            }
         }
 
-        private void ButtonPing_Click(object sender, RoutedEventArgs e)
+        private bool _RefreshingLogMessage;
+        public bool RefreshingLogMessage
+        {
+            get => _RefreshingLogMessage;
+            set
+            {
+                _RefreshingLogMessage = value;
+                RaisePropertyChanged();
+            }
+        }
+        public class RefreshLogMessageP
+        {
+            public int Count { get; set; } = 50;
+            public DateTime? DATE_B { get; set; }
+            public DateTime? DATE_E { get; set; }
+            public MessageLoggerVS[] VS { get; set; }
+        }
+
+        public RefreshLogMessageP RefreshLogMessageParam { get; set; } = new RefreshLogMessageP();
+        public ICommand RefreshLogMessageCommand => new Command(obj =>
         {
             try
             {
-                var p = wcf.PingAdress();
-                MessageBox.Show(this,$"Узел [{p.Adress}] :{(p.Result ? "доступен!" : "НЕ доступен!")}{(string.IsNullOrEmpty(p.Text)? "" : $"({p.Text})" )}");
+                RefreshingLogMessage = true;
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        var t = wcf.GetLog(RefreshLogMessageParam.Count, RefreshLogMessageParam.VS?.Length != 0 ? RefreshLogMessageParam.VS : null, RefreshLogMessageParam.DATE_B, RefreshLogMessageParam.DATE_E);
+                        dispatcher?.Invoke(() =>
+                        {
+                            LogMessage.Clear();
+                            foreach (var item in t)
+                            {
+                                LogMessage.Add(item);
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка получения лога сообщений: {ex.Message}");
+                    }
+                    finally
+                    {
+                        dispatcher?.Invoke(() => { RefreshingLogMessage = false; });
+                    }
+                });
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                MessageBox.Show($"Ошибка получения лога сообщений: {ex.Message}");
+            }
+        }, obj => !RefreshingLogMessage);
+
+        public ICommand ShowLogMessageDetailCommand => new Command(obj =>
+        {
+            try
+            {
+                var items = (LogRow[])obj;
+                var item = items.First();
+                switch (item.VS)
+                {
+                    case MessageLoggerVS.InputData:
+                    case MessageLoggerVS.InputDataSiteTFOMS:
+                        var ViewMP = new ViewMP(item.ID);
+                        ViewMP.Show();
+                        break;
+                    case MessageLoggerVS.FeedbackOnMedicalService:
+                        var ViewFeedBack = new ViewFeedBack(item.ID, item.OrderId, item.ApplicationId);
+                        ViewFeedBack.Show();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при открытии: {ex.Message}");
+            }
+        });
+
+        public ICommand ShowStatusHistoryCommand => new Command(obj =>
+        {
+            try
+            {
+                var items = (LogRow[])obj;
+                var item = items.First();
+                var win = new StatusHistory(item.ID);
+                win.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при открытии: {ex.Message}");
+            }
+        });
+
+
+
+        public ICommand DeleteMessageDetailCommand => new Command(obj =>
+        {
+            try
+            {
+                var items = (LogRow[])obj;
+                if (MessageBox.Show($"Вы уверены что хотите удалить {items.Length} сообщений", "", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    wcf.DeleteLog(items.Select(x => x.ID).ToArray());
+                    MessageBox.Show("Успешно");
+                    RefreshLogMessageCommand.Execute(null);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка удаления сообщения: {ex.Message}");
+            }
+        });
+
+        public ICommand ReSentCommand => new Command(obj =>
+        {
+            try
+            {
+                var items = (LogRow[])obj;
+                var item = items.First();
+                if (MessageBox.Show($"Вы уверены что хотите еще раз отправить сообщение", "", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            wcf.Resent(item.ID);
+                            MessageBox.Show("Успешно");
+                        }
+                        catch (Exception ex)
+                        { MessageBox.Show(ex.Message); }
+                    });
+
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка удаления сообщения: {ex.Message}");
+            }
+        });
+        #endregion
+        #region Report
+        ObservableCollection<ReportRow> _Report = new ObservableCollection<ReportRow>();
+        public ObservableCollection<ReportRow> Report
+        {
+            get => _Report;
+            set
+            {
+                _Report = value;
+                RaisePropertyChanged();
             }
         }
 
-        private void ButtonSavePingParameter_Click(object sender, RoutedEventArgs e)
+        class ReportParam
+        {
+            public DateTime DATE_START { get; set; }
+            public DateTime DATE_END { get; set; }
+        }
+
+        private ReportParam ReportP { get; set; } = new ReportParam();
+        public ICommand GetReportCommand => new Command(obj =>
+        {
+            try
+            {
+                var items = (object[])obj;
+                var ds = (DateTime?)items[0];
+                var de = (DateTime?)items[1];
+                if (!ds.HasValue || !de.HasValue)
+                    throw new Exception("Не указан период выборки");
+
+                ReportP.DATE_START = ds.Value;
+                ReportP.DATE_END = de.Value;
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        var t = wcf.GetReport(ds.Value, de.Value);
+                        dispatcher?.Invoke(() =>
+                        {
+                            Report.Clear();
+                            foreach (var item in t)
+                            {
+                                Report.Add(item);
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка при запросе отчета: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при запросе отчета: {ex.Message}");
+            }
+        });
+
+
+        public ICommand ExportReportCommand => new Command(obj =>
+        {
+            try
+            {
+                if (Report.Count != 0)
+                    reportExport.Export(Report.ToList(), ReportP.DATE_START, ReportP.DATE_END);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при запросе отчета: {ex.Message}");
+            }
+        });
+
+        #endregion
+        #region PingConfig
+        private string _PingHost;
+        public string PingHost
+        {
+            get => _PingHost;
+            set { _PingHost = value; RaisePropertyChanged(); }
+        }
+        private bool _PingIsEnabled;
+        public bool PingIsEnabled
+        {
+            get => _PingIsEnabled;
+            set { _PingIsEnabled = value; RaisePropertyChanged(); }
+        }
+        private int _PingTimeOut;
+        public int PingTimeOut
+        {
+            get => _PingTimeOut;
+            set { _PingTimeOut = value; RaisePropertyChanged(); }
+        }
+        private string[] _PingNameProcess = { };
+        public string[] PingNameProcess
+        {
+            get => _PingNameProcess;
+            set { _PingNameProcess = value; RaisePropertyChanged(); RaisePropertyChanged(nameof(PingNameProcessString));
+            }
+        }
+
+        public string PingNameProcessString
+        {
+            get => string.Join(Environment.NewLine, _PingNameProcess);
+            set { _PingNameProcess = value.Split(new[] { Environment.NewLine }, StringSplitOptions.None).Where(x => !string.IsNullOrEmpty(x)).ToArray(); RaisePropertyChanged(); RaisePropertyChanged(nameof(PingNameProcess)); }
+        }
+
+        public ICommand SavePingParamCommand => new Command(obj =>
         {
             try
             {
                 var p = new PingConfig
                 {
-                    Adress = textBoxPingAdress.Text.Trim(),
-                    IsEnabled = CheckBoxPingEnabled.IsChecked == true,
-                    TimeOut = Convert.ToInt32(textBoxPingTimeout.Text),
-                    Process = textBoxNameProcess.Text.Split(new[] { Environment.NewLine },StringSplitOptions.None).Where(x=>!string.IsNullOrEmpty(x)).ToArray()
+                    Adress = PingHost,
+                    IsEnabled = PingIsEnabled,
+                    TimeOut = PingTimeOut,
+                    Process = PingNameProcess
                 };
                 wcf.PingParamSet(p);
-                ButtonGetPingParameter_Click(ButtonGetPingParameter, new RoutedEventArgs());
+                LoadPingParamCommand.Execute(null);
                 MessageBox.Show("ОК");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
-        }
 
-        private void MenuItem_OnClickView(object sender, RoutedEventArgs e)
-        {
-            listBox12_MouseDoubleClick(DataGridMessage, null);
-        }
+        });
 
-        private void MenuItem_OnClickDel(object sender, RoutedEventArgs e)
+        public ICommand LoadPingParamCommand => new Command(obj =>
         {
             try
             {
-                var Selected = SelectedUslLogRow.ToList();
-                if (Selected.Count == 0) return;
+                var p = wcf.PingParamGet();
+                PingHost = p.Adress;
+                PingIsEnabled = p.IsEnabled;
+                PingTimeOut = p.TimeOut;
+                PingNameProcess = p.Process;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
 
-                if (MessageBox.Show($"Вы уверены что хотите удалить {Selected.Count} записей?", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+        public ICommand CheckPingCommand => new Command(obj =>
+        {
+            try
+            {
+                var p = wcf.PingAdress();
+                MessageBox.Show($"Узел [{p.Adress}] :{(p.Result ? "доступен!" : "НЕ доступен!")}{(string.IsNullOrEmpty(p.Text) ? "" : $"({p.Text})")}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+
+
+
+
+        #endregion
+        #region Setting
+        Configuration _Configuration = new Configuration();
+        public Configuration Configuration
+        {
+            get => _Configuration;
+            set
+            {
+                _Configuration = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        Config_VS _currentConfig;
+        public Config_VS currentConfig
+        {
+            get => _currentConfig;
+            set
+            {
+                _currentConfig = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        public ICommand GetConfigCommand => new Command(obj =>
+        {
+            try
+            {
+                Task.Factory.StartNew(() =>
                 {
-                    wcf.DeleteLog(Selected.Select(x=>x.ID).ToArray());
-                    buttonLogMessage_Click(buttonLogMessage, new RoutedEventArgs());
+                    try
+                    {
+                        var t = wcf.GetConfig();
+                        dispatcher?.Invoke(() => { Configuration = t; });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка получения конфигурации: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+
+        public ICommand SetConfigCommand => new Command(obj =>
+        {
+            try
+            {
+                wcf.SetConfig(Configuration);
+                MessageBox.Show("ОК");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка передачи конфигурации на сервер: {ex.Message}");
+            }
+        });
+
+        public ICommand SelectTransportMessageCommand => new Command(obj =>
+        {
+            try
+            {
+                if (currentConfig == null) return;
+                var fbd = new FolderDialog(currentConfig.TranspotrMessage);
+                if (fbd.ShowDialog() == true)
+                {
+                    currentConfig.TranspotrMessage = fbd.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+        public ICommand SelectUserOutMessageCommand => new Command(obj =>
+        {
+            try
+            {
+                if (currentConfig == null) return;
+                var fbd = new FolderDialog(currentConfig.UserOutMessage);
+                if (fbd.ShowDialog() == true)
+                {
+                    currentConfig.UserOutMessage = fbd.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+        public ICommand SelectArchiveFolderCommand => new Command(obj =>
+        {
+            try
+            {
+                if (currentConfig == null) return;
+                var fbd = new FolderDialog(currentConfig.FilesConfig.ArchiveFolder);
+                if (fbd.ShowDialog() == true)
+                {
+                    currentConfig.FilesConfig.ArchiveFolder = fbd.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+
+        public ICommand SelectInputFolderCommand => new Command(obj =>
+        {
+            try
+            {
+                if (currentConfig == null) return;
+                var fbd = new FolderDialog(currentConfig.FilesConfig.InputFolder);
+                if (fbd.ShowDialog() == true)
+                {
+                    currentConfig.FilesConfig.InputFolder = fbd.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+        public ICommand SelectOutputFolderCommand => new Command(obj =>
+        {
+            try
+            {
+                if (currentConfig == null) return;
+                var fbd = new FolderDialog(currentConfig.FilesConfig.OutputFolder);
+                if (fbd.ShowDialog() == true)
+                {
+                    currentConfig.FilesConfig.OutputFolder = fbd.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+        public ICommand SelectPoccessFolderCommand => new Command(obj =>
+        {
+            try
+            {
+                if (currentConfig == null) return;
+                var fbd = new FolderDialog(currentConfig.FilesConfig.PoccessFolder);
+                if (fbd.ShowDialog() == true)
+                {
+                    currentConfig.FilesConfig.PoccessFolder = fbd.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        });
+
+
+
+
+
+
+
+
+
+        #endregion
+
+        private int _TabIndex;
+        public int TabIndex
+        {
+            get => _TabIndex;
+            set
+            {
+                _TabIndex = value;
+                AutoRaiseCommand(TabIndex);
+            }
+        }
+
+        private void AutoRaiseCommand(int index)
+        {
+            try
+            {
+                switch (index)
+                {
+                    case 0: RefreshLogServiceCommand.Execute(null); break;
+                    case 1: RefreshDoWorkCommand.Execute(null); break;
+                    case 2: RefreshLogMessageCommand.Execute(null); break;
+                    case 4: LoadPingParamCommand.Execute(null); break;
+                    case 5: GetConfigCommand.Execute(null); break;
                 }
             }
             catch (Exception ex)
@@ -767,22 +953,53 @@ namespace AddapterSMEVClient
             }
         }
 
-        private void UIElement_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+
+
+
+        #region INotifyPropertyChanged
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [NotifyPropertyChangedInvocator]
+        protected virtual void RaisePropertyChanged([CallerMemberName] string propertyName = null)
         {
-            try
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        #endregion
+
+
+    }
+
+
+    public class EntriesMyVM:INotifyPropertyChanged
+    {
+        private EntriesMy EntriesMy;
+        public EntriesMyVM(EntriesMy e)
+        {
+            EntriesMy = e;
+        }
+
+        private bool _ShowFull;
+        public bool ShowFull
+        {
+            get => _ShowFull;
+            set
             {
-                var VS = ((sender as Image)?.DataContext as VSWorkProcess);
-                if (VS != null)
-                {
-                    wcf.ChangeActivProcess(VS.VS, !VS.Activ);
-                    buttonStatus_Click(buttonStatus, new RoutedEventArgs());
-                }
+                _ShowFull = value;
+                RaisePropertyChanged();
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
-          
+        }
+        public string Message => EntriesMy.Message;
+        public DateTime TimeGenerated => EntriesMy.TimeGenerated;
+        public TypeEntries Type => EntriesMy.Type;
+
+        public bool IsMultiLine => Message.Contains(Environment.NewLine) || Message.Contains('\n');
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [NotifyPropertyChangedInvocator]
+        protected virtual void RaisePropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

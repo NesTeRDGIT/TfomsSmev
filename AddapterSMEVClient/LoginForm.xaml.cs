@@ -23,19 +23,12 @@ namespace AddapterSMEVClient
     {
         public IWcfInterface MyWcfConnection;//{ set; get; }
         public MyServiceCallback callback;
-        public string DIALOG_MESSAGE = null;
+        public string DIALOG_MESSAGE { get; set; } = null;
+
         public LoginForm()
         {
             InitializeComponent();
-           passwordBoxPass.Password = ProtectStr.UnprotectString(Settings.Default.PASSWORD);
-            textBoxUserName.Text = ProtectStr.UnprotectString(Settings.Default.USER_NAME);
             textBoxHOST.Text = Settings.Default.IP_CONNECT;
-
-        }
-
-        private void button2_Click(object sender, RoutedEventArgs e)
-        {
-            Close();
         }
 
         void StartAnimateButton1()
@@ -44,9 +37,6 @@ namespace AddapterSMEVClient
             var rgb = (RadialGradientBrush)button1.Background;
             s.RepeatBehavior = RepeatBehavior.Forever;
             rgb.GradientStops[0].BeginAnimation(GradientStop.OffsetProperty, s);
-
-
-
         }
 
 
@@ -68,19 +58,7 @@ namespace AddapterSMEVClient
             {
                 ColorAnimation ca = ((ColorAnimation)(FindResource("CA")));
                 bool result = true;
-                if (passwordBoxPass.Password.Trim() == "")
-                {
-                    result = false;
-                    passwordBoxPass.BorderBrush = new SolidColorBrush();
-                    passwordBoxPass.BorderBrush.BeginAnimation(SolidColorBrush.ColorProperty, ca);
-                }
-                if (textBoxUserName.Text.Trim() == "")
-                {
-                    result = false;
-                    textBoxUserName.BorderBrush = new SolidColorBrush();
-                    textBoxUserName.BorderBrush.BeginAnimation(SolidColorBrush.ColorProperty, ca);
-
-                }
+              
                 if (textBoxHOST.Text.Trim() == "")
                 {
                     result = false;
@@ -121,29 +99,14 @@ namespace AddapterSMEVClient
                 StopAnimateButton1();
             }
         }
-        public static List<string> SecureCard;
-        public static int ID = -1;
-        public static int ORG_ID = -1;
-        public static int ISSMO = -1;
-        public static string SMOKOD = "";
-        string Log = "";
-        string PASS = "";
+       
         public void ThreadConnect()
         {
             try
             {
-
                 Dispatcher.Invoke(() =>
                 {
-                    if (checkBox1.IsChecked == true)
-                    {
-                        Settings.Default.PASSWORD = ProtectStr.ProtectString(passwordBoxPass.Password);
-                        Settings.Default.USER_NAME = ProtectStr.ProtectString(textBoxUserName.Text);
-                    }
-                    Log = textBoxUserName.Text;
-                    PASS = passwordBoxPass.Password;
                     Settings.Default.IP_CONNECT = textBoxHOST.Text;
-
                 });
 
                 Connect();
@@ -151,7 +114,6 @@ namespace AddapterSMEVClient
                 {
                     Title = "Подключение: Запрос прав";
                 }));
-              //  SecureCard = MyWcfConnection.Connect();
 
                 button1.Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -194,63 +156,43 @@ namespace AddapterSMEVClient
 
         private void Connect()
         {
-            
+            var addr = $@"net.tcp://{Settings.Default.IP_CONNECT}:50505/TFOMS_SMEV.svc"; // Адрес сервиса
+            var tcpUri = new Uri(addr);
+            var address = new EndpointAddress(tcpUri);
 
-            string addr = @"net.tcp://" + Settings.Default.IP_CONNECT + ":50505/TFOMS_SMEV.svc"; // Адрес сервиса
-            Uri tcpUri = new Uri(addr);
-            EndpointAddress address = new EndpointAddress(tcpUri);
+            var netTcpBinding = new NetTcpBinding
+            {
+                ReaderQuotas = {MaxArrayLength = int.MaxValue, MaxBytesPerRead = int.MaxValue, MaxStringContentLength = int.MaxValue},
+                MaxBufferPoolSize = int.MaxValue,
+                MaxReceivedMessageSize = int.MaxValue,
+                SendTimeout = new TimeSpan(0, 30, 0),
+                ReceiveTimeout = new TimeSpan(24, 0, 0)
+            };
 
-        //    var t = address.Identity;
-            //  BasicHttpBinding basicHttpBinding = new BasicHttpBinding(BasicHttpSecurityMode.None); //HTTP!
-            var netTcpBinding = new NetTcpBinding();
-           
 
             // Ниже строки для того, чтоб пролазили таблицы развером побольше
-            netTcpBinding.ReaderQuotas.MaxArrayLength = int.MaxValue;
-            netTcpBinding.ReaderQuotas.MaxBytesPerRead = int.MaxValue;
-            netTcpBinding.ReaderQuotas.MaxStringContentLength = int.MaxValue;
-            netTcpBinding.MaxBufferPoolSize = int.MaxValue;
-            netTcpBinding.MaxReceivedMessageSize = int.MaxValue;
-            netTcpBinding.SendTimeout = new TimeSpan(0, 30, 0);
-            netTcpBinding.ReceiveTimeout = new TimeSpan(24, 0, 0);
-
-
-
-            /* netTcpBinding.Security.Mode = SecurityMode.TransportWithMessageCredential;
-             netTcpBinding.Security.Message.ClientCredentialType = MessageCredentialType.UserName;
-             netTcpBinding.Security.Transport.ClientCredentialType = TcpClientCredentialType.None;
-
-     */
 
 
 
             callback = new MyServiceCallback();
             var instanceContext = new InstanceContext(callback);
-            DuplexChannelFactory<IWcfInterface> factory = new DuplexChannelFactory<IWcfInterface>(instanceContext, netTcpBinding, address);
+            var factory = new DuplexChannelFactory<IWcfInterface>(instanceContext, netTcpBinding, address);
             factory.Endpoint.Behaviors.Add(new MessageServerBehavior());
-            factory.Credentials.UserName.UserName = Log;
-            factory.Credentials.UserName.Password = PASS;
 
-            factory.Credentials.ServiceCertificate.Authentication.CertificateValidationMode = X509CertificateValidationMode.None;
-
-            //factory.Credentials.ClientCertificate.SetCertificate(StoreLocation.CurrentUser, StoreName.My, X509FindType.FindBySubjectName, "MSERVICE");
-            button1.Dispatcher.BeginInvoke(new Action(() =>
+            button1.Dispatcher.Invoke(() =>
             {
                 Title = "Подключение: Создание канала";
+            });
 
 
-            }));
-
-
-            foreach (OperationDescription op in factory.Endpoint.Contract.Operations)
+            foreach (var op in factory.Endpoint.Contract.Operations)
             {
-                DataContractSerializerOperationBehavior dataContractBehavior = op.Behaviors.Find<DataContractSerializerOperationBehavior>();
+                var dataContractBehavior = op.Behaviors.Find<DataContractSerializerOperationBehavior>();
                 if (dataContractBehavior != null)
                 {
                     dataContractBehavior.MaxItemsInObjectGraph = int.MaxValue;
                 }
             }
-            
             MyWcfConnection = factory.CreateChannel(); // Создаём само подключение   
             MyWcfConnection.Register();
         }
@@ -267,34 +209,21 @@ namespace AddapterSMEVClient
         protected override void OnContentRendered(EventArgs e)
         {
             base.OnContentRendered(e);
-
             if (DIALOG_MESSAGE != null)
             {
                 MessageBox.Show(DIALOG_MESSAGE);
             }
-
         }
         
 
-        private void checkBox1_Click(object sender, RoutedEventArgs e)
-        {
-            Settings.Default.SAVE_LOG_AND_PASS = checkBox1.IsChecked.Value;
-        }
-
+    
         private void textBoxHOST_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-
                 button1_Click(null, null);
             }
         }
-
-        private void button2_Click_2(object sender, RoutedEventArgs e)
-        {
-        }
-
-
     }
     [CallbackBehavior(ConcurrencyMode = ConcurrencyMode.Reentrant, UseSynchronizationContext = false)]
     public class MyServiceCallback : IWcfInterfaceCallback
