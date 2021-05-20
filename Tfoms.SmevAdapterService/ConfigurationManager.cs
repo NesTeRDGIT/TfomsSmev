@@ -28,17 +28,9 @@ namespace SmevAdapterService
         {
             try
             {
-                AddLog("Загрузка конфигурации", LogType.Information);
-                if (File.Exists(config_path))
-                {
-                    config = Configuration.LoadFromFile(config_path);
-                }
-                else
-                {
-                    config = new Configuration();
-                    config.Check();
-                    Configuration.SaveToFile(config_path, config);
-                }
+                AddLog("Сохранение конфигурации", LogType.Information);
+                config.Check();
+                Configuration.SaveToFile(config_path, config);
             }
             catch (Exception ex)
             {

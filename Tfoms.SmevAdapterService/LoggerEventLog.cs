@@ -9,7 +9,6 @@ using SMEV.WCFContract;
 
 namespace SmevAdapterService
 {
-  
     public class LoggerEventLog : ILogger
     {
         private readonly string nameLog;

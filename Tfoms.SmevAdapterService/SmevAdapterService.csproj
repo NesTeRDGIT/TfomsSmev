@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <PublishUrl>C:\Program Files %28x86%29\TFOMS\My Product Name\</PublishUrl>
+    <PublishUrl>C:\Program Files %28x86%29\TFOMS\TFOMSAdapteSMEV\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>false</UpdateEnabled>
@@ -24,7 +24,7 @@
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>false</MapFileExtensions>
     <OpenBrowserOnPublish>false</OpenBrowserOnPublish>
-    <ApplicationRevision>9</ApplicationRevision>
+    <ApplicationRevision>13</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
@@ -119,8 +119,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AdapterLayer\Integration\Database\DbContext.cs" />
-    <Compile Include="AdapterLayer\Integration\Database\ProcessorDataBase.cs" />
     <Compile Include="AdapterLayer\Integration\Files\FilesRepository.cs" />
     <Compile Include="AdapterLayer\Integration\IRepository.cs" />
     <Compile Include="AdapterLayer\XmlClasses\AdapterMessage.cs" />
@@ -131,8 +129,14 @@
     <Compile Include="AdapterService.Designer.cs">
       <DependentUpon>AdapterService.cs</DependentUpon>
     </Compile>
+    <Compile Include="CabinetProcess.cs" />
+    <Compile Include="CabinetService\CabinetService.cs" />
+    <Compile Include="CabinetService\Informing.cs" />
+    <Compile Include="CabinetService\InformingModelDataContext.cs" />
+    <Compile Include="CabinetService\IRegister.cs" />
     <Compile Include="ConfigurationManager.cs" />
     <Compile Include="IDBManager.cs" />
+    <Compile Include="IMPAnswer.cs" />
     <Compile Include="LoggerEventLog.cs" />
     <Compile Include="IProcess.cs" />
     <Compile Include="MessageLogger.cs" />
@@ -155,6 +159,10 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ICabinetService\CabinetContract.csproj">
+      <Project>{4781f6d3-c99d-46c1-9f28-e2a5a84a65a2}</Project>
+      <Name>CabinetContract</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SMEV.WCFContract\SMEV.csproj">
       <Project>{da41a67d-29a1-4f4b-9b0f-2dc5278badc2}</Project>
       <Name>SMEV</Name>

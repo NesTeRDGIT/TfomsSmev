@@ -1,0 +1,27 @@
+﻿<Window x:Class="AddapterSMEVClient.StatusHistory"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:AddapterSMEVClient"
+        xmlns:wcf="clr-namespace:SMEV.WCFContract;assembly=SMEV"
+        mc:Ignorable="d"
+        Name="this"
+        Title="История изменения статуса" Height="450" Width="800">
+    <Window.Resources>
+        <CollectionViewSource x:Key="CVSStatus" Source="{Binding ListSTATUS_OUT}" d:DesignSource="{d:DesignInstance {x:Type wcf:STATUS_OUT}, CreateList=True}" ></CollectionViewSource>
+    </Window.Resources>
+    <Window.DataContext>
+        <Binding ElementName="this" Path="VM"></Binding>
+    </Window.DataContext>
+    <Grid>
+        <DataGrid ItemsSource="{Binding Source={StaticResource CVSStatus}}" IsReadOnly="True" AutoGenerateColumns="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="STATUS__OUT__ID" Binding="{Binding STATUS_OUT_ID}"></DataGridTextColumn>
+                <DataGridTextColumn Header="Дата" Binding="{Binding DATE_INSERT, StringFormat=dd.MM.yyyy HH:mm:ss}"></DataGridTextColumn>
+                <DataGridTextColumn Header="Статус" Binding="{Binding STATUS}"></DataGridTextColumn>
+                <DataGridTextColumn Header="Текст" Binding="{Binding COMMENT}"></DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</Window>

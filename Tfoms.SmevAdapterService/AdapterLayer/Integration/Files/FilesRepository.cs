@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml.Linq;
@@ -44,34 +45,46 @@ namespace SmevAdapterService.AdapterLayer.Integration
         {
             try
             {
-                if (!Directory.Exists(Config.ArchiveFolder)) Directory.CreateDirectory(Config.ArchiveFolder);
-                if (!Directory.Exists(Config.InputFolder)) Directory.CreateDirectory(Config.InputFolder);
-                if (!Directory.Exists(Config.OutputFolder)) Directory.CreateDirectory(Config.OutputFolder);
-                if (!Directory.Exists(Config.PoccessFolder)) Directory.CreateDirectory(Config.PoccessFolder);
+                if (!Directory.Exists(Config.ArchiveFolder) && !string.IsNullOrEmpty(Config.ArchiveFolder)) Directory.CreateDirectory(Config.ArchiveFolder);
+                if (!Directory.Exists(Config.InputFolder) && !string.IsNullOrEmpty(Config.InputFolder)) Directory.CreateDirectory(Config.InputFolder);
+                if (!Directory.Exists(Config.OutputFolder) && !string.IsNullOrEmpty(Config.OutputFolder)) Directory.CreateDirectory(Config.OutputFolder);
+                if (!Directory.Exists(Config.PoccessFolder) && !string.IsNullOrEmpty(Config.PoccessFolder)) Directory.CreateDirectory(Config.PoccessFolder);
             }
             catch (Exception ex)
             {
                 throw new Exception($"Ошибка проверки каталогов файловой интеграции: {ex.Message}", ex);
             }
         }
+
+        private class FileNameItem
+        {
+            public FileNameItem(string Path)
+            {
+                this.Path = Path;
+            }
+            public string Path { get; set; } 
+            public DateTime? DateTime { get; set; }
+        }
         public List<MessageIntegration> GetMessage()
         {
             try
             {
                 var list = new List<MessageIntegration>();
-                MoveFileInProccess();
-                var files = Directory.GetFiles(Config.PoccessFolder, "{*}.xml");
+                MoveFileInProcess();
+                var files = Directory.GetFiles(Config.PoccessFolder, "{*}.xml").Select(x=>new FileNameItem(x)).ToList();
+                foreach (var item in files)
+                {
+                    item.DateTime = File.GetCreationTime(item.Path);
+                }
                 var r = new Regex(@"^[\{](?<key>.*)[\}]$");
-               
                 foreach (var file in files)
                 {
-                    var ma = r.Match(Path.GetFileNameWithoutExtension(file));
+                    var ma = r.Match(Path.GetFileNameWithoutExtension(file.Path));
                     var val = ma.Groups["key"].Value;
                     if (string.IsNullOrEmpty(val))
                         throw new Exception("Ошибка разбора имени файла: нет группы key");
-                    list.Add(new MessageIntegration { Key = ma.Groups["key"].Value, Content = XDocument.Load(file) });
+                    list.Add(new MessageIntegration { Key = ma.Groups["key"].Value, Content = XDocument.Load(file.Path) });
                 }
-                
                 return list;
             }
             catch (Exception ex)
@@ -82,7 +95,7 @@ namespace SmevAdapterService.AdapterLayer.Integration
         /// <summary>
         /// Перенос файлов в папку обработки
         /// </summary>
-        private void MoveFileInProccess()
+        private void MoveFileInProcess()
         {
             var files = Directory.GetFiles(Config.InputFolder, "*.xml");
             foreach (var file in files)
@@ -187,19 +200,19 @@ namespace SmevAdapterService.AdapterLayer.Integration
         /// <summary>
         /// Папка входящих файлов
         /// </summary>
-        public string InputFolder { get; set; }
+        public string InputFolder { get; set; } = "";
         /// <summary>
         /// Папка исходящих файлов
         /// </summary>
-        public string OutputFolder { get; set; }
+        public string OutputFolder { get; set; } = "";
         /// <summary>
         /// Папка обработки
         /// </summary>
-        public string PoccessFolder { get; set; }
+        public string PoccessFolder { get; set; } = "";
         /// <summary>
         /// Папка архива
         /// </summary>
-        public string ArchiveFolder { get; set; }
+        public string ArchiveFolder { get; set; } = "";
 
     }
     public static class FileManager

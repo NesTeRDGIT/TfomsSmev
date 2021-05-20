@@ -25,22 +25,40 @@ namespace AddapterSMEVClient.Control
 
         #region Dependency Properties
 
-        public static readonly DependencyProperty ItemsSourceProperty =
-             DependencyProperty.Register("ItemsSource", typeof(IEnumerable), typeof(MultiSelectComboBox), new FrameworkPropertyMetadata(null,
+        public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register("ItemsSource", typeof(IEnumerable), typeof(MultiSelectComboBox), new FrameworkPropertyMetadata(null,
         OnItemsSourceChanged));
 
-        public static readonly DependencyProperty SelectedItemsProperty =
-         DependencyProperty.Register("SelectedItems", typeof(List<object>), typeof(MultiSelectComboBox), new FrameworkPropertyMetadata(new List<object>(),
+        public static readonly DependencyProperty SelectedItemsProperty = DependencyProperty.Register("SelectedItems", typeof(List<object>), typeof(MultiSelectComboBox), new FrameworkPropertyMetadata(new List<object>(),
      OnSelectedItemsChanged));
 
-        public static readonly DependencyProperty TextProperty =
-           DependencyProperty.Register("Text", typeof(string), typeof(MultiSelectComboBox), new UIPropertyMetadata(string.Empty));
+        public static readonly DependencyProperty TextProperty = DependencyProperty.Register("Text", typeof(string), typeof(MultiSelectComboBox), new UIPropertyMetadata(string.Empty));
 
-        public static readonly DependencyProperty DefaultTextProperty =
-            DependencyProperty.Register("DefaultText", typeof(string), typeof(MultiSelectComboBox), new UIPropertyMetadata(string.Empty));
-        public delegate void dropDownClosed();
+        public static readonly DependencyProperty DefaultTextProperty = DependencyProperty.Register("DefaultText", typeof(string), typeof(MultiSelectComboBox), new UIPropertyMetadata(string.Empty));
 
-        public event dropDownClosed DropDownClosed;
+    
+
+        public static readonly RoutedEvent DropDownClosedEvent = EventManager.RegisterRoutedEvent("DropDownClosed", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(MultiSelectComboBox));
+
+        
+        public event RoutedEventHandler DropDownClosed
+        {
+            add { AddHandler(DropDownClosedEvent, value); }
+            remove { RemoveHandler(DropDownClosedEvent, value); }
+            
+        }
+
+        // This method raises the Tap event
+        void RaiseDropDownClosedEvent()
+        {
+            var newEventArgs = new RoutedEventArgs(DropDownClosedEvent);
+            RaiseEvent(newEventArgs);
+        }
+        // For demonstration purposes we raise the event when the MyButtonSimple is clicked
+      
+
+       
+
+       
         [Bindable(true)]
         public IEnumerable ItemsSource
         {
@@ -217,8 +235,7 @@ namespace AddapterSMEVClient.Control
 
         private void MultiSelectCombo_DropDownClosed(object sender, EventArgs e)
         {
-            DropDownClosed?.Invoke();
-            
+            RaiseDropDownClosedEvent();
         }
     }
 

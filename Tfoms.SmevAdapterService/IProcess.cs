@@ -8,27 +8,34 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using SMEV;
+using SMEV.VS.MedicalCare.V1_0_0;
 using SMEV.VS.Zags;
+using SMEV.VS.Zags.V4_0_0;
 using SMEV.WCFContract;
 using SmevAdapterService.AdapterLayer.Integration;
 using SmevAdapterService.AdapterLayer.XmlClasses;
+using SmevAdapterService.CabinetService;
 using SmevAdapterService.VS;
 
 using InputData = SMEV.VS.MedicalCare.V1_0_0.InputData;
 using OutputData = SMEV.VS.MedicalCare.V1_0_0.OutputData;
-using Zags4_0_1 = SMEV.VS.Zags4_0_1;
 
 namespace SmevAdapterService
 {
-    public interface IProcess
+    public interface IProcesor
     {
         void StartProcess(Configuration conf);
         void StopProcess();
-        Dictionary<SMEV.WCFContract.VS, ProcessObrTask> CurrentWork { get; }
+        Dictionary<SMEV.WCFContract.VS, IProcess> CurrentWork { get; }
+        
     }
-    public class ProcessWork :IProcess
+
+
+    
+ 
+    public class ProcessWork : IProcesor
     {
-        private Configuration Configuration;
+        private Configuration Configuration { get; set; }
 
         private ILogger logger;
         public ProcessWork(ILogger logger)
@@ -40,68 +47,115 @@ namespace SmevAdapterService
         {
             logger?.AddLog(log, type);
         }
-        public Dictionary<SMEV.WCFContract.VS, ProcessObrTask> CurrentWork { get; } = new Dictionary<SMEV.WCFContract.VS, ProcessObrTask>();
+        public Dictionary<SMEV.WCFContract.VS, IProcess> CurrentWork { get; } = new Dictionary<SMEV.WCFContract.VS, IProcess>();
 
         public void StartProcess(Configuration conf)
         {
             Configuration = conf;
             foreach (var t in Configuration.ListVS)
             {
-                Task task;
                 var param = new ProcessObrTaskParam(t, Configuration.TimeOut * 1000);
-                var CTS = new CancellationTokenSource();
+                IRepository repository = new FileIntegration(FileIntegrationConfig.Get(param.Config.FilesConfig));
+                IMessageLogger messageLogger = new MessageLogger(Configuration.ConnectionString, t.ItSystem, logger);
+                IProcess process;
                 switch (t.VS)
                 {
                     case SMEV.WCFContract.VS.MP:
-                        task = new Task(() => Medpom(param, CTS.Token));
+                        var mPAnswer = new MPAnswer(t.ConnectionString);
+                        process = new MPProcess(logger, repository, messageLogger, param, mPAnswer);
                         break;
                     case SMEV.WCFContract.VS.ZAGS:
-                        task = new Task(() => ZAGS(param, CTS.Token));
+                        process = new ZAGSProcess(logger, repository, messageLogger, param);
                         break;
                     case SMEV.WCFContract.VS.PFR:
-                        task = new Task(() => PFR(param, CTS.Token));
+                        process = new PFRProcess(logger, repository, messageLogger, param);
+                        break;
+                    case SMEV.WCFContract.VS.Cabinet:
+                        mPAnswer = new MPAnswer(t.ConnectionString);
+                        var informing = new Informing(t.ConnectionString2);
+                        var register = new Register(t.ConnectionString2);
+                        process = new CabinetProcess(param, logger, messageLogger, mPAnswer, informing, register);
                         break;
                     default:
-                        AddLog($"Ошибка запуска конфигурации {t.VS.ToString()} - нет обработчика", LogType.Error);
+                        AddLog($"Ошибка запуска конфигурации {t.VS} - нет обработчика", LogType.Error);
                         continue;
                 }
-                var po = new ProcessObrTask(task, CTS, param);
-
-                CurrentWork.Add(t.VS, po);
+                CurrentWork.Add(t.VS, process);
                 if (t.isEnabled)
-                    task.Start();
+                    process.StartProcess();
             }
         }
 
-        private void Delay(int MS)
+        public void StopProcess()
         {
-            var t = Task.Delay(MS);
-            t.Wait();
+            foreach (var t in CurrentWork.Where(t => t.Value.IsRunning))
+            {
+                t.Value.StopProcess();
+            }
+            CurrentWork.Clear();
         }
 
-        private void Medpom(ProcessObrTaskParam param, CancellationToken cancel)
+
+    }
+
+
+
+    public interface IProcess
+    {
+        void StartProcess();
+        void StopProcess();
+        void Resent(int ID);
+
+        bool IsRunning { get; }
+        string ItSystem { get; }
+        SMEV.WCFContract.VS VS { get; }
+        string Text { get; }
+    }
+
+  
+
+    public class MPProcess:IProcess
+    {
+        private ILogger logger;
+        private IRepository repository;
+        private IMessageLogger messageLogger;
+        private ProcessObrTaskParam param;
+        private IMPAnswer mPAnswer;
+
+        public MPProcess(ILogger logger, IRepository repository, IMessageLogger messageLogger, ProcessObrTaskParam param, IMPAnswer mPAnswer)
+        {
+            this.logger = logger;
+            this.repository = repository;
+            this.messageLogger = messageLogger;
+            this.param = param;
+            this.mPAnswer = mPAnswer;
+        }
+        private void Delay(int MS, CancellationToken cancel)
+        {
+            try
+            {
+                var t = Task.Delay(MS, cancel);
+                t.Wait(cancel);
+            }
+            catch (OperationCanceledException) { }
+        }
+        private void AddLog(string log, LogType type)
+        {
+            logger?.AddLog(log, type);
+        }
+
+        private void Medpom(CancellationToken cancel)
         {
             try
             {
                 param.Text = "Начало работы";
-                var Config_VS = param.Config;
-                var mlog = new MessageLogger(Configuration.ConnectionString, Config_VS.ItSystem, logger);
-
-                var ConnectionString = Config_VS.ConnectionString;
+                var Config_VS = param.Config;            
+                var mlog = messageLogger;
                 param.Text = "Запуск интеграции";
 
-                IRepository fi = null;
-                switch (Config_VS.Integration)
-                {
-                    case Integration.FileSystem:
-                        var fic = FileIntegrationConfig.Get(Config_VS.FilesConfig);
-                        fi = new FileIntegration(fic); break;
-                    case Integration.DataBase:
-                        fi = new DataBaseIntegration(Config_VS.DataBaseConfig.ConnectionString); break;
-                }
                 while (!cancel.IsCancellationRequested)
                 {
-                    var mess = fi.GetMessage();
+                    var mess = repository.GetMessage();
                     foreach (var mes in mess)
                     {
                         param.Text = "Обработка сообщения";
@@ -119,27 +173,26 @@ namespace SmevAdapterService
                                 if (InputData.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
                                 {
                                     var val = SeDeserializer<InputData>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
-                                    ProcessInputData(fi, mes, mlog, val, MessageId, replyToClientId, adapterInMessage.smevMetadata.Recipient, ConnectionString);
+                                    ProcessInputData(mes, val, MessageId, replyToClientId, adapterInMessage.smevMetadata.Recipient);
                                     continue;
                                 }
 
                                 if (SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.InputData.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
                                 {
                                     var val = SeDeserializer<SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.InputData>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
-                                    ProcessInputData_V2(fi, mes, mlog, val, MessageId, replyToClientId, adapterInMessage.smevMetadata.Recipient, ConnectionString);
+                                    ProcessInputData_V2(mes,  val, MessageId, replyToClientId, adapterInMessage.smevMetadata.Recipient);
                                     continue;
                                 }
                                 if (SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
                                 {
                                     var val = SeDeserializer<SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
-                                    ProcessFeedbackOnMedicalService(fi, mes, mlog, val, MessageId, replyToClientId, adapterInMessage.smevMetadata.Recipient, ConnectionString);
+                                    ProcessFeedbackOnMedicalService(mes,  val, MessageId, replyToClientId, adapterInMessage.smevMetadata.Recipient);
                                     continue;
                                 }
                                 throw new Exception($"Неизвестный тип запроса [{mes.Key}]");
                             }
 
-                            var resp = adapterInMessage.Message as ResponseMessageType;
-                            if (resp != null)
+                            if (adapterInMessage.Message is ResponseMessageType resp)
                             {
                                 var id = mlog.FindIDByMessageOut(resp.ResponseMetadata.replyToClientId);
                                 if (!id.HasValue)
@@ -147,46 +200,29 @@ namespace SmevAdapterService
                                     throw new Exception($"Не удалось найти ID сообщения для [{mes.Key}]");
                                 }
                                 mes.ID = id.Value;
+                                MessageLoggerStatus status;
+                                var message = resp.ResponseContent?.status?.description;
                                 switch (adapterInMessage.Message.messageType)
                                 {
                                     case "StatusMessage":
-                                        var set = true;
-                                        if (resp.ResponseContent.status.description?.ToUpper().Trim() == "Сообщение отправлено в СМЭВ".ToUpper().Trim())
-                                        {
-                                            var st = mlog.GetSTATUS_OUT(id.Value);
-                                            if (st != MessageLoggerStatus.OUTPUT)
-                                            {
-                                                AddLog($"Пропущен статус доставки в СМЭВ для ID = {id.Value}", LogType.Warning);
-                                                set = false;
-                                            }
-                                        }
-
-                                        if (set)
-                                        {
-                                            mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.SUCCESS);
-                                            mlog.UpdateCommentOut(id.Value, resp.ResponseContent.status.description);
-                                        }
-                                        fi.ReadMessage(mes);
+                                        status = MessageLoggerStatus.SUCCESS;
                                         break;
                                     case "ErrorMessage":
-                                        mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
-                                        mlog.UpdateCommentOut(id.Value, resp.ResponseContent.status.description);
-                                        fi.ReadMessage(mes);
+                                        status = MessageLoggerStatus.ERROR;
                                         break;
                                     case "RejectMessage":
-                                        mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
-                                        mlog.UpdateCommentOut(id.Value, string.Join(",", resp.ResponseContent.rejects.Select(x => $"{x.code.ToString()}:{x.description}")));
-                                        fi.ReadMessage(mes);
+                                        status = MessageLoggerStatus.ERROR;
+                                        message = string.Join(",", resp.ResponseContent.rejects.Select(x => $"{x.code}:{x.description}"));
                                         break;
                                     default:
-
                                         throw new Exception($"Не верный messageType для ResponseMessageType для [{mes.Key}]");
                                 }
+                                mlog.InsertStatusOut(id.Value, status, message);
+                                repository.ReadMessage(mes);
                                 continue;
                             }
 
-                            var err = adapterInMessage.Message as ErrorMessage;
-                            if (err != null)
+                            if (adapterInMessage.Message is ErrorMessage err)
                             {
                                 AddLog($"Сообщение об ошибке из СМЭВ в потоке МП: {err.details}", LogType.Error);
                                 var id = mlog.FindIDByMessageOut(err.statusMetadata.originalClientId);
@@ -194,86 +230,129 @@ namespace SmevAdapterService
                                 {
                                     throw new Exception($"Не удалось найти ID сообщения для [{mes.Key}]");
                                 }
-                                mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
-                                fi.ReadMessage(mes);
+                                mlog.InsertStatusOut(id.Value, MessageLoggerStatus.ERROR, err.details);
+                                repository.ReadMessage(mes);
                                 continue;
                             }
                             throw new Exception($"Неизвестный тип сообщения[{mes.Key}]");
                         }
                         catch (Exception ex)
                         {
-                            AddLog($"Ошибка потоке обработки МП: {ex.Message} ", LogType.Error);
-                            fi.ErrorMessage(mes);
+                            AddLog($"Ошибка потоке обработки МП({mes.Key}): {ex.Message}{ex.StackTrace}", LogType.Error);
+                            repository.ErrorMessage(mes);
                         }
                     }
                     param.Text = "Ожидание сообщения";
-                    Delay(param.TimeOut);
+                    Delay(param.TimeOut,cancel);
                 }
             }
             catch (Exception ex)
             {
-                AddLog($"Ошибка в потоке Medpom: {ex.Message}", LogType.Error);
+                AddLog($"Ошибка в потоке Medpom: {ex.Message}{ex.StackTrace}", LogType.Error);
             }
         }
-
-        private void ProcessInputData(IRepository fi, MessageIntegration mes, MessageLogger mlog, InputData inputdate, string MessageId, string replyToClientId, string ITSystem, string ConnectionString)
+        private void ProcessInputData(MessageIntegration mes,  InputData inputdate, string MessageId, string replyToClientId, string ITSystem)
         {
             try
             {
                 //Данные о человеке
-                var idlog = mlog.AddInputMessage(MessageLoggerVS.InputData, MessageId, MessageLoggerStatus.INPUT, "", "");
+                var idlog = messageLogger.AddInputMessage(MessageLoggerVS.InputData, MessageId, MessageLoggerStatus.INPUT, "", "");
                 var req = inputdate.InsuredRenderingListRequest;
-                mlog.SetMedpomDataIn(idlog, req.FamilyName, req.FirstName, req.Patronymic, req.BirthDate, req.DateFrom, req.DateTo, req.UnitedPolicyNumber, null);
+                messageLogger.SetMedpomDataIn(idlog, req.FamilyName, req.FirstName, req.Patronymic, req.BirthDate, req.DateFrom, req.DateTo, req.UnitedPolicyNumber, null);
+
                 //Ответ из БД
-                var outdate = inputdate.Answer(ConnectionString);
-                if (outdate != null)
+                var result = GetAnswer(inputdate);
+                var outdate = ConvetToOutput(result);
+
+                if (result.Count != 0)
                 {
-                    var ou = (OutputData)outdate;
-                    //Ответ в БД
-                    mlog.SetMedpomDataOut(idlog, ou.InsuredRenderingList.Select(x => new MessageLogger.SLUCH_REF(x.IsMTR, x.SLUCH_Z_ID, x.SLUCH_ID, x.USL_ID)).ToList());
+                    messageLogger.SetMedpomDataOut(idlog, result.Select(x => new SLUCH_REF(x.isMTR, x.SLUCH_Z_ID, x.SLUCH_ID, x.USL_ID)).ToList());
                 }
                 //Исходящие сообщение
-                var clientId = mlog.GetGuidOut();
+                var clientId = messageLogger.GetNewGuidOut();
                 var ms_out = new MessageIntegration { ID = idlog, Key = clientId };
                 mes.ID = idlog;
                 ms_out.Content = AdapterMessageCreator.GenerateAddapterSendRequest(outdate, ITSystem, replyToClientId, clientId);
-                fi.SendMessage(ms_out);
-                fi.EndProcessMessage(mes);
-                mlog.UpdateStatusIN(idlog, MessageLoggerStatus.SUCCESS);
-                mlog.SetOutMessage(idlog, clientId, MessageLoggerStatus.OUTPUT);
+                repository.SendMessage(ms_out);
+                repository.EndProcessMessage(mes);
+                messageLogger.UpdateStatusIN(idlog, MessageLoggerStatus.SUCCESS);
+                messageLogger.SetOutMessage(idlog, clientId, MessageLoggerStatus.OUTPUT);
             }
             catch (Exception e)
             {
                 throw new Exception($"Ошибка в ProcessInputData: {e.Message}", e);
             }
         }
+        public void Resent(int ID)
+        {
+            var guids = messageLogger.GetGuids(ID);
+            if(guids==null)
+                throw new Exception("Сервер не вернул сообщение");
+            if (string.IsNullOrEmpty(guids.GUID_IN) || string.IsNullOrEmpty(guids.GUID_OUT))
+                throw new Exception("Отстутсвуеют реквизиты сообщений");
+            var SLUCH_REF = messageLogger.GetMedpomDataOut(ID);          
+            var result = mPAnswer.GetData(SLUCH_REF.Where(x=>!x.IsMTR).Select(x=>x.SLUCH_ID).ToArray(), SLUCH_REF.Where(x => x.IsMTR).Select(x => x.SLUCH_ID).ToArray());
+            if(result.Count!= SLUCH_REF.Count)
+                throw new Exception("Первичные данные отличаются от повторных");
 
-        private void ProcessInputData_V2(IRepository fi, MessageIntegration mes, MessageLogger mlog, SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.InputData inputdate, string MessageId, string replyToClientId, string ITSystem, string ConnectionString)
+            var outdate = ConvetToOutput(result);
+            var ms_out = new MessageIntegration { ID = ID, Key = guids.GUID_OUT };
+            ms_out.Content = AdapterMessageCreator.GenerateAddapterSendRequest(outdate, ItSystem, guids.GUID_IN, guids.GUID_OUT);
+            repository.SendMessage(ms_out);
+        }
+
+
+        private OutputData ConvetToOutput(List<V_MEDPOM_SMEV3Row> data)
+        {
+            var result = new OutputData();
+            foreach(var item in data)
+            {
+                var medicalCare = new InsuredRenderingInfo
+                {
+                    DateRenderingFrom = item.DATE_IN,
+                    DateRenderingTo = item.DATE_OUT,
+                    CareRegimen = item.USL_OK_NAME,
+                    CareType = item.VIDPOM_NAME,
+                    Name = item.NAME_USL,
+                    MedServicesSum = item.SUMP_USL,
+                    ClinicName = item.NAM_MOK,
+                    RegionName = item.TF_NAME
+                };
+                result.InsuredRenderingList.Add(medicalCare);
+            }
+            return result.InsuredRenderingList.Count == 0 ? null : result;
+        }
+        private List<V_MEDPOM_SMEV3Row> GetAnswer(InputData inputdate)
+        {
+            var req = inputdate.InsuredRenderingListRequest;
+            return mPAnswer.GetData(req.FamilyName, req.FirstName, req.Patronymic, req.BirthDate, req.UnitedPolicyNumber, req.DateFrom, req.DateTo);
+        }
+
+        private void ProcessInputData_V2(MessageIntegration mes, SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.InputData inputdate, string MessageId, string replyToClientId, string ITSystem)
         {
             try
             {
                 //Данные о человеке
-                var idlog = mlog.AddInputMessage(MessageLoggerVS.InputData, MessageId, MessageLoggerStatus.INPUT, inputdate.orderId, "");
+                var idlog = messageLogger.AddInputMessage(MessageLoggerVS.InputData, MessageId, MessageLoggerStatus.INPUT, inputdate.orderId, "");
                 var req = inputdate;
-                mlog.SetMedpomDataIn(idlog, req.FamilyName, req.FirstName, req.Patronymic, req.BirthDate, req.DateFrom, req.DateTo, req.UnitedPolicyNumber, req.orderId);
-                var clientId = mlog.GetGuidOut();
+                messageLogger.SetMedpomDataIn(idlog, req.FamilyName, req.FirstName, req.Patronymic, req.BirthDate, req.DateFrom, req.DateTo, req.UnitedPolicyNumber, req.orderId);
+                var clientId = messageLogger.GetNewGuidOut();
                 //Ответ из БД
-                var outdate = inputdate.Answer(ConnectionString);
+                var result = GetAnswer(inputdate);
+                var outdate = ConvetToOutputNew(result);
                 if (outdate != null)
                 {
-                    var ou = (SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.OutputData)outdate;
-                    ou.orderId = req.orderId;
-                    //Ответ в БД
-                    mlog.SetMedpomDataOut(idlog,ou.InsuredRenderingList.Select(x => new MessageLogger.SLUCH_REF(x.IsMTR, x.SLUCH_Z_ID, x.SLUCH_ID, x.USL_ID)).ToList());
+                    outdate.orderId = req.orderId;
+                    messageLogger.SetMedpomDataOut(idlog, result.Select(x => new SLUCH_REF(x.isMTR, x.SLUCH_Z_ID, x.SLUCH_ID, x.USL_ID)).ToList());
                 }
                 //Исходящие сообщение
                 var ms_out = new MessageIntegration { ID = idlog, Key = clientId };
                 mes.ID = idlog;
                 ms_out.Content = AdapterMessageCreator.GenerateAddapterSendRequest(outdate, ITSystem, replyToClientId, clientId);
-                fi.SendMessage(ms_out);
-                fi.EndProcessMessage(mes);
-                mlog.UpdateStatusIN(idlog, MessageLoggerStatus.SUCCESS);
-                mlog.SetOutMessage(idlog, clientId, MessageLoggerStatus.OUTPUT);
+                repository.SendMessage(ms_out);
+                repository.EndProcessMessage(mes);
+                messageLogger.UpdateStatusIN(idlog, MessageLoggerStatus.SUCCESS);
+                messageLogger.SetOutMessage(idlog, clientId, MessageLoggerStatus.OUTPUT);
             }
             catch (Exception e)
             {
@@ -281,38 +360,105 @@ namespace SmevAdapterService
             }
         }
 
-        public void ProcessFeedbackOnMedicalService(IRepository fi, MessageIntegration mes, MessageLogger mlog, SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData inputdate, string MessageId, string replyToClientId, string ITSystem, string ConnectionString)
+
+        private SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.OutputData ConvetToOutputNew(List<V_MEDPOM_SMEV3Row> data)
         {
-            //Данные о человеке
-            var idlog = mlog.AddInputMessage(MessageLoggerVS.FeedbackOnMedicalService, MessageId, MessageLoggerStatus.INPUT, inputdate.orderId, inputdate.ApplicationID);
-            mlog.SetFeedbackINFO(inputdate, idlog);
-            fi.EndProcessMessage(mes);
-            mlog.UpdateStatusIN(idlog, MessageLoggerStatus.SUCCESS);
+            var result = new SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.OutputData();
+            foreach (var item in data)
+            {
+                var medicalCare = new SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.InsuredRenderingInfo
+                {
+                    DateRenderingFrom = item.DATE_IN,
+                    DateRenderingTo = item.DATE_OUT,
+                    CareRegimen = item.USL_OK_NAME,
+                    CareType = item.VIDPOM_NAME,
+                    Name = item.NAME_USL,
+                    MedServicesSum = item.SUMP_USL,
+                    ClinicName = item.NAM_MOK,
+                    RegionName = item.TF_NAME
+                };
+                result.InsuredRenderingList.Add(medicalCare);
+            }
+            return result.InsuredRenderingList.Count == 0 ? null : result;
+        }
+        private List<V_MEDPOM_SMEV3Row> GetAnswer(SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.InputData inputdate)
+        {
+            var req = inputdate;
+            return mPAnswer.GetData(req.FamilyName, req.FirstName, req.Patronymic, req.BirthDate, req.UnitedPolicyNumber, req.DateFrom, req.DateTo);
         }
 
-        public void ZAGS(ProcessObrTaskParam param, CancellationToken cancel)
+
+        public void ProcessFeedbackOnMedicalService(MessageIntegration mes, SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData inputdate, string MessageId, string replyToClientId, string ITSystem)
+        {
+            //Данные о человеке
+            var idlog = messageLogger.AddInputMessage(MessageLoggerVS.FeedbackOnMedicalService, MessageId, MessageLoggerStatus.INPUT, inputdate.orderId, inputdate.ApplicationID);
+            messageLogger.SetFeedbackINFO(inputdate, idlog);
+            repository.EndProcessMessage(mes);
+            messageLogger.UpdateStatusIN(idlog, MessageLoggerStatus.SUCCESS);
+        }
+
+     
+        private Task task;
+        private CancellationTokenSource CTS;
+        public void StartProcess()
+        {
+            CTS = new CancellationTokenSource();
+            task = new Task(() => Medpom(CTS.Token));
+            task.Start();
+        }
+
+        public void StopProcess()
+        {
+            CTS?.Cancel();
+        }
+
+        public bool IsRunning => task?.Status == TaskStatus.Running;
+
+        public string ItSystem => param.Config.ItSystem;
+
+        public SMEV.WCFContract.VS VS => param.Config.VS;
+
+        public string Text => param.Text;
+    }
+
+    public class ZAGSProcess : IProcess
+    {
+        private ILogger logger;
+        private IRepository repository;
+        private IMessageLogger messageLogger;
+        private ProcessObrTaskParam param;
+        public ZAGSProcess(ILogger logger, IRepository repository, IMessageLogger messageLogger, ProcessObrTaskParam param)
+        {
+            this.logger = logger;
+            this.repository = repository;
+            this.messageLogger = messageLogger;
+            this.param = param;
+        }
+        private void Delay(int MS, CancellationToken cancel)
+        {
+            try
+            {
+                var t = Task.Delay(MS, cancel);
+                t.Wait(cancel);
+            }
+            catch (OperationCanceledException) { }
+        }
+        private void AddLog(string log, LogType type)
+        {
+            logger?.AddLog(log, type);
+        }
+        public void ZAGS(CancellationToken cancel)
         {
             try
             {
                 param.Text = "Начало работы";
                 var Config_VS = param.Config;
-                var mlog = new MessageLogger(Configuration.ConnectionString, Config_VS.ItSystem, logger);
+                var mlog = messageLogger;
 
                 param.Text = "Запуск интеграции";
-                IRepository fi = null;
-
-                switch (Config_VS.Integration)
-                {
-                    case Integration.FileSystem:
-                        var fic = FileIntegrationConfig.Get(Config_VS.FilesConfig);
-                        fi = new FileIntegration(fic); break;
-                    case Integration.DataBase:
-                        fic = new FileIntegrationConfig();
-                        fi = new FileIntegration(fic); break;
-                }
+                var fi = repository;
                 while (!cancel.IsCancellationRequested)
                 {
-
                     var mess = fi.GetMessage();
                     foreach (var mes in mess)
                     {
@@ -321,68 +467,70 @@ namespace SmevAdapterService
                         {
                             var adapterInMessage = SeDeserializer<QueryResult>.DeserializeFromXDocument(mes.Content);
                             //Если запрос
-                            if (adapterInMessage.Message is RequestMessageType)
+                            if (adapterInMessage.Message is RequestMessageType rmt)
                             {
-                                var rmt = adapterInMessage.Message as RequestMessageType;
                                 var ns = rmt.RequestContent.content.MessagePrimaryContent.Name.Namespace;
                                 IRequestMessage inputdate = null;
                                 var NameType = MessageLoggerVS.UNKNOW;
                                 //Определяем тип сообщения
-                                if (Request_BRAKZRZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<Request_BRAKZRZP>() == ns.NamespaceName)
                                 {
                                     inputdate = SeDeserializer<Request_BRAKZRZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_BRAKZRZP;
                                 }
-                                if (Request_BRAKRZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<Request_BRAKRZP>() == ns.NamespaceName)
                                 {
                                     inputdate = SeDeserializer<Request_BRAKRZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_BRAKRZP;
                                 }
-                                if (Request_BRAKZZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<Request_BRAKZZP>() == ns.NamespaceName)
                                 {
                                     inputdate = SeDeserializer<Request_BRAKZZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_BRAKZZP;
                                 }
-                                if (Request_FATALZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<Request_FATALZP>() == ns.NamespaceName)
                                 {
                                     inputdate = SeDeserializer<Request_FATALZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_FATALZP;
                                 }
-                                if (Zags4_0_1.Request_FATALZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<SMEV.VS.Zags.V4_0_1.Request_FATALZP>() == ns.NamespaceName)
                                 {
-                                    inputdate = SeDeserializer<Zags4_0_1.Request_FATALZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
+                                    inputdate = SeDeserializer<SMEV.VS.Zags.V4_0_1.Request_FATALZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_FATALZP4_0_1;
                                 }
-                                if (Request_PARENTZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+
+                                if (GetNameSpace<Request_PARENTZP>() == ns.NamespaceName)
                                 {
                                     inputdate = SeDeserializer<Request_PARENTZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_PARENTZP;
                                 }
-                                if (Zags4_0_1.Request_PARENTZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<SMEV.VS.Zags.V4_0_1.Request_PARENTZP>() == ns.NamespaceName)
                                 {
-                                    inputdate = SeDeserializer<Zags4_0_1.Request_PARENTZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
+                                    inputdate = SeDeserializer<SMEV.VS.Zags.V4_0_1.Request_PARENTZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_PARENTZP4_0_1;
                                 }
-                                if (Request_PERNAMEZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<Request_PERNAMEZP>() == ns.NamespaceName)
                                 {
                                     inputdate = SeDeserializer<Request_PERNAMEZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_PERNAMEZP;
                                 }
-                                if (Zags4_0_1.Request_PERNAMEZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<SMEV.VS.Zags.V4_0_1.Request_PERNAMEZP>() == ns.NamespaceName)
                                 {
-                                    inputdate = SeDeserializer<Zags4_0_1.Request_PERNAMEZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
+                                    inputdate = SeDeserializer<SMEV.VS.Zags.V4_0_1.Request_PERNAMEZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_PERNAMEZP4_0_1;
                                 }
-                                if (Request_ROGDZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+                                if (GetNameSpace<Request_ROGDZP>() == ns.NamespaceName)
                                 {
                                     inputdate = SeDeserializer<Request_ROGDZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_ROGDZP;
                                 }
-                                if (Zags4_0_1.Request_ROGDZP.XmlnsClass.ToArray().Count(x => x.Namespace == ns.NamespaceName) != 0)
+
+                                if (GetNameSpace<SMEV.VS.Zags.V4_0_1.Request_ROGDZP>() == ns.NamespaceName)
                                 {
-                                    inputdate = SeDeserializer<Zags4_0_1.Request_ROGDZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
+                                    inputdate = SeDeserializer<SMEV.VS.Zags.V4_0_1.Request_ROGDZP>.DeserializeFromXDocument(rmt.RequestContent.content.MessagePrimaryContent);
                                     NameType = MessageLoggerVS.Request_ROGDZP4_0_1;
                                 }
+
                                 //Если не известный тип
                                 if (inputdate == null)
                                 {
@@ -392,7 +540,7 @@ namespace SmevAdapterService
                                 var idlog = mlog.AddInputMessage(NameType, MessageId, MessageLoggerStatus.INPUT, "", "");
                                 mes.ID = idlog;
                                 var replyToClientId = rmt.RequestMetadata.clientId;
-                                var clientId = mlog.GetGuidOut();
+                                var clientId = mlog.GetNewGuidOut();
                                 var ms_out = new MessageIntegration { ID = idlog, Key = clientId };
 
                                 if (!string.IsNullOrEmpty(Config_VS.TranspotrMessage))
@@ -402,12 +550,13 @@ namespace SmevAdapterService
                                     var path = Path.Combine(Dir, $"[{mes.Key}][REQ][RAW][{DateTime.Now.Hour.ToString()}-{DateTime.Now.Minute.ToString()}].xml");
                                     rmt.RequestContent.content.MessagePrimaryContent.Save(path);
                                     mlog.UpdateStatusIN(idlog, MessageLoggerStatus.INPUT);
-                                    mlog.UpdateComentIN(idlog, "SAVE: " + path);
+                                    mlog.UpdateCommentIN(idlog, $"SAVE: {path}");
                                 }
                                 //Получить ответ
                                 var outdate = inputdate.Answer(Config_VS.ConnectionString);
 
                                 ms_out.Content = AdapterMessageCreator.GenerateAddapterSendRequest(outdate, adapterInMessage.smevMetadata.Recipient, replyToClientId, clientId);
+
                                 //Отправка ответа  
                                 fi.SendMessage(ms_out);
                                 fi.EndProcessMessage(mes);
@@ -416,8 +565,7 @@ namespace SmevAdapterService
                                 continue;
                             }
 
-                            var resp = adapterInMessage.Message as ResponseMessageType;
-                            if (resp != null)
+                            if (adapterInMessage.Message is ResponseMessageType resp)
                             {
                                 if (string.IsNullOrEmpty(resp.ResponseMetadata.replyToClientId) && resp.ResponseContent.status.description?.ToUpper().Trim() == "Successfully queued".ToUpper().Trim())
                                 {
@@ -431,46 +579,29 @@ namespace SmevAdapterService
                                     throw new Exception($"Не удалось найти ID сообщения для [{mes.Key}]");
                                 }
                                 mes.ID = id.Value;
-
+                                MessageLoggerStatus status;
+                                var message = resp.ResponseContent.status.description;
                                 switch (resp.messageType)
                                 {
                                     case "StatusMessage":
-                                        var set = true;
-                                        if (resp.ResponseContent.status.description?.ToUpper().Trim() == "Сообщение отправлено в СМЭВ".ToUpper().Trim())
-                                        {
-                                            var st = mlog.GetSTATUS_OUT(id.Value);
-                                            if (st != MessageLoggerStatus.OUTPUT)
-                                            {
-                                                AddLog($"Пропущен статус доставки в СМЭВ для ID = {id.Value}", LogType.Warning);
-                                                set = false;
-                                            }
-                                        }
-
-                                        if (set)
-                                        {
-                                            mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.SUCCESS);
-                                            mlog.UpdateCommentOut(id.Value, resp.ResponseContent.status.description);
-                                        }
-                                        fi.ReadMessage(mes);
+                                        status = MessageLoggerStatus.SUCCESS;
                                         break;
                                     case "ErrorMessage":
-                                        mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
-                                        mlog.UpdateCommentOut(id.Value, resp.ResponseContent.status.description);
-                                        fi.ReadMessage(mes);
+                                        status = MessageLoggerStatus.ERROR;
                                         break;
                                     case "RejectMessage":
-                                        mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
-                                        mlog.UpdateCommentOut(id.Value, string.Join(",", resp.ResponseContent.rejects.Select(x => $"{x.code.ToString()}:{x.description}")));
-                                        fi.ReadMessage(mes);
+                                        message = string.Join(",", resp.ResponseContent.rejects.Select(x => $"{x.code.ToString()}:{x.description}"));
+                                        status = MessageLoggerStatus.SUCCESS;
                                         break;
                                     default:
                                         throw new Exception($"Не верный messageType для ResponseMessageType для [{mes.Key}]");
                                 }
+                                mlog.InsertStatusOut(id.Value, status, message);
+                                fi.ReadMessage(mes);
                                 continue;
                             }
 
-                            var err = adapterInMessage.Message as ErrorMessage;
-                            if (err != null)
+                            if (adapterInMessage.Message is ErrorMessage err)
                             {
                                 AddLog($"Сообщение об ошибке из СМЭВ в потоке ЗАГС: {err.details}", LogType.Error);
                                 var id = mlog.FindIDByMessageOut(err.statusMetadata.originalClientId);
@@ -478,7 +609,7 @@ namespace SmevAdapterService
                                 {
                                     throw new Exception($"Не удалось найти ID сообщения для [{mes.Key}]");
                                 }
-                                mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
+                                mlog.InsertStatusOut(id.Value, MessageLoggerStatus.ERROR, err.details);
                                 fi.ReadMessage(mes);
                                 continue;
                             }
@@ -492,7 +623,7 @@ namespace SmevAdapterService
 
                     }
                     param.Text = "Ожидание сообщения";
-                    Delay(param.TimeOut);
+                    Delay(param.TimeOut, cancel);
                 }
             }
             catch (Exception ex)
@@ -500,35 +631,85 @@ namespace SmevAdapterService
                 AddLog($"Ошибка в потоке ЗАГС: {ex.Message}", LogType.Error);
             }
         }
-        public void PFR(ProcessObrTaskParam param, CancellationToken cancel)
+
+        private string GetNameSpace<T>()
+        {
+            return SeDeserializer<T>.Namespace;
+        }
+
+        private Task task;
+        private CancellationTokenSource CTS;
+        public void StartProcess()
+        {
+            CTS = new CancellationTokenSource();
+            task = new Task(() => ZAGS( CTS.Token));
+            task.Start();
+        }
+
+        public void StopProcess()
+        {
+            CTS?.Cancel();
+        }
+
+        public void Resent(int ID)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool IsRunning => task?.Status == TaskStatus.Running;
+        public string ItSystem => param.Config.ItSystem;
+
+        public SMEV.WCFContract.VS VS => param.Config.VS;
+
+        public string Text => param.Text;
+
+    }
+
+    public class PFRProcess : IProcess
+    {
+        private ILogger logger;
+        private IRepository repository;
+        private IMessageLogger messageLogger;
+        private ProcessObrTaskParam param;
+
+        public PFRProcess(ILogger logger, IRepository repository, IMessageLogger messageLogger,  ProcessObrTaskParam param)
+        {
+            this.logger = logger;
+            this.repository = repository;
+            this.messageLogger = messageLogger;
+            this.param = param;
+        }
+        private void Delay(int MS, CancellationToken cancel)
+        {
+            try
+            {
+                var t = Task.Delay(MS, cancel);
+                t.Wait(cancel);
+            }
+            catch (OperationCanceledException) { }
+        }
+        private void AddLog(string log, LogType type)
+        {
+            logger?.AddLog(log, type);
+        }
+        private void PFR(CancellationToken cancel)
         {
             try
             {
                 param.Text = "Начало работы";
                 var Config_VS = param.Config;
-                var mlog = new MessageLogger(Configuration.ConnectionString, Config_VS.ItSystem, logger);
-
+                var mlog = messageLogger;
                 param.Text = "Запуск интеграции";
-                IRepository fi = null;
-                switch (Config_VS.Integration)
-                {
-                    case Integration.FileSystem:
-                        var fic = FileIntegrationConfig.Get(Config_VS.FilesConfig);
-                        fi = new FileIntegration(fic); break;
-                    case Integration.DataBase:
-                        fic = new FileIntegrationConfig();
-                        fi = new FileIntegration(fic); break;
-                }
+                var fi = repository;
 
                 while (!cancel.IsCancellationRequested)
                 {
                     foreach (var file in GetMessagePFPOut(Config_VS.UserOutMessage))
                     {
-                        var clientId = mlog.GetGuidOut();
+                        var clientId = mlog.GetNewGuidOut();
                         var send = CreatePFRData(file, Config_VS.ItSystem, clientId);
                         var id = mlog.AddInputMessage(MessageLoggerVS.PFR_SNILS, "", MessageLoggerStatus.NONE, "", "");
-                        mlog.SetOutMessage(id, clientId, MessageLoggerStatus.OUTPUT);
-                        mlog.UpdateCommentOut(id, $"FILE: {file}");
+                        mlog.InsertStatusOut(id, MessageLoggerStatus.OUTPUT, $"FILE: {file}");
                         var ms = new MessageIntegration { Key = clientId, ID = id, Content = send.SerializeToX() };
                         fi.SendMessage(ms);
                         var dirArc = Path.Combine(Config_VS.FilesConfig.ArchiveFolder, DateTime.Now.ToString("yyyy_MM_dd"), "UserOut");
@@ -564,45 +745,27 @@ namespace SmevAdapterService
                                 switch (adapterInMessage.Message.messageType)
                                 {
                                     case "StatusMessage":
-                                        var set = true;
-                                        if (resp.ResponseContent.status.description?.ToUpper().Trim() ==
-                                            "Сообщение отправлено в СМЭВ".ToUpper().Trim())
-                                        {
-                                            var st = mlog.GetSTATUS_OUT(id.Value);
-                                            if (st != MessageLoggerStatus.OUTPUT)
-                                            {
-                                                AddLog($"Пропущен статус доставки в СМЭВ для ID = {id.Value}", LogType.Warning);
-                                                set = false;
-                                            }
-                                        }
-                                        if (set)
-                                        {
-                                            mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.SUCCESS);
-                                            mlog.UpdateCommentOut(id.Value, resp.ResponseContent.status.description);
-                                        }
-
+                                        mlog.InsertStatusOut(id.Value, MessageLoggerStatus.SUCCESS, resp.ResponseContent.status.description);
                                         fi.ReadMessage(mes);
                                         break;
                                     case "ErrorMessage":
-                                        mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
-                                        mlog.UpdateCommentOut(id.Value, resp.ResponseContent.status.description);
-                                        var path = Path.Combine(Dir, $"[{mes.Key}][ERR][RAW][{DateTime.Now.Hour.ToString()}-{DateTime.Now.Minute.ToString()}].xml");
+                                        mlog.InsertStatusOut(id.Value, MessageLoggerStatus.ERROR, resp.ResponseContent.status.description);
+                                        var path = Path.Combine(Dir, $"[{mes.Key}][ERR][RAW][{DateTime.Now.Hour}-{DateTime.Now.Minute}].xml");
                                         rmt.ResponseContent.SerializeToX().Save(path);
                                         fi.ReadMessage(mes);
                                         break;
                                     case "RejectMessage":
-                                        mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
-                                        mlog.UpdateCommentOut(id.Value, string.Join(",", resp.ResponseContent.rejects.Select(x => $"{x.code.ToString()}:{x.description}")));
-                                        path = Path.Combine(Dir, $"[{mes.Key}][REJ][RAW][{DateTime.Now.Hour.ToString()}-{DateTime.Now.Minute.ToString()}].xml");
+                                        mlog.InsertStatusOut(id.Value, MessageLoggerStatus.ERROR, string.Join(",", resp.ResponseContent.rejects.Select(x => $"{x.code}:{x.description}")));
+                                        path = Path.Combine(Dir, $"[{mes.Key}][REJ][RAW][{DateTime.Now.Hour}-{DateTime.Now.Minute}].xml");
                                         rmt.ResponseContent.SerializeToX().Save(path);
                                         fi.ReadMessage(mes);
                                         break;
                                     case "PrimaryMessage":
                                         mlog.SetINMessage(id.Value, mes.Key, MessageLoggerStatus.INPUT);
-                                        path = Path.Combine(Dir, $"[{mes.Key}][RES][RAW][{DateTime.Now.Hour.ToString()}-{DateTime.Now.Minute.ToString()}].xml");
+                                        path = Path.Combine(Dir, $"[{mes.Key}][RES][RAW][{DateTime.Now.Hour}-{DateTime.Now.Minute}].xml");
                                         rmt.ResponseContent.content.MessagePrimaryContent.Save(path);
                                         mlog.UpdateStatusIN(id.Value, MessageLoggerStatus.SUCCESS);
-                                        mlog.UpdateComentIN(id.Value, "SAVE: " + path);
+                                        mlog.UpdateCommentIN(id.Value, $"SAVE: {path}");
                                         fi.EndProcessMessage(mes);
                                         break;
                                     default:
@@ -620,7 +783,7 @@ namespace SmevAdapterService
                                 {
                                     throw new Exception($"Не удалось найти ID сообщения для [{mes.Key}]");
                                 }
-                                mlog.UpdateStatusOut(id.Value, MessageLoggerStatus.ERROR);
+                                mlog.InsertStatusOut(id.Value, MessageLoggerStatus.ERROR, err.details);
                                 fi.ReadMessage(mes);
                                 continue;
                             }
@@ -634,7 +797,7 @@ namespace SmevAdapterService
 
                     }
                     param.Text = "Ожидание сообщения";
-                    Delay(param.TimeOut);
+                    Delay(param.TimeOut, cancel);
                 }
             }
             catch (Exception ex)
@@ -643,7 +806,7 @@ namespace SmevAdapterService
             }
         }
 
-        public List<string> GetMessagePFPOut(string DIR)
+        private List<string> GetMessagePFPOut(string DIR)
         {
             try
             {
@@ -680,17 +843,35 @@ namespace SmevAdapterService
             return ad;
         }
 
-        public void StopProcess()
+        private Task task;
+        private CancellationTokenSource CTS;
+        public void StartProcess()
         {
-            foreach (var t in CurrentWork)
-            {
-                if (t.Value.Task?.Status == TaskStatus.Running)
-                    t.Value.Cancel.Cancel();
-            }
-            CurrentWork.Clear();
+            CTS = new CancellationTokenSource();
+            task = new Task(() => PFR(CTS.Token));
+            task.Start();
         }
 
+        public void StopProcess()
+        {
+            CTS?.Cancel();
+        }
+
+        public void Resent(int ID)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool IsRunning => task?.Status == TaskStatus.Running;
+        public string ItSystem => param.Config.ItSystem;
+
+        public SMEV.WCFContract.VS VS => param.Config.VS;
+
+        public string Text => param.Text;
 
     }
+
+
+   
 
 }

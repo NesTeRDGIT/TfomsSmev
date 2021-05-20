@@ -22,7 +22,6 @@ using SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService;
 using SMEV.VS.Zags;
 using InputData = SMEV.VS.MedicalCare.V1_0_0.InputData;
 using OutputData = SMEV.VS.MedicalCare.V1_0_0.OutputData;
-using Zags4_0_1 = SMEV.VS.Zags4_0_1;
 using SMEV;
 
 namespace SmevAdapterService
@@ -30,12 +29,13 @@ namespace SmevAdapterService
     public partial class AdapterService : ServiceBase
     {
         private ILogger logger = new LoggerEventLog("SMEV_Service");
-        private IProcess process;
+        private IProcesor process;
         private IConfigurationManager ConfigurationManager;
         private IPingManager pingManager;
+        private IDBManager dbManager;
         private WcfServer wi;
         public ServiceHost WcfConnection { set; get; }
-
+        
 
         public AdapterService()
         {
@@ -48,6 +48,7 @@ namespace SmevAdapterService
                 Directory.CreateDirectory(config_dir);
             }
             ConfigurationManager = new ConfigurationManager(pathconfig, logger);
+           
             pingManager = new PingManager(PingConfigPath, OnResultPing, logger );
             process = new ProcessWork(logger);
     }
@@ -59,25 +60,37 @@ namespace SmevAdapterService
         protected override void OnStart(string[] args)
         {
             AddLog("Старт службы", LogType.Information);
+            AddLog("Загрузка конфигурации", LogType.Information);
+            try
+            {
+               
+                ConfigurationManager.Load();
+                pingManager.LoadConfig();
+                dbManager = new PGManager(ConfigurationManager.config.ConnectionString);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Ошибка загрузки конфигурации: {ex.Message}", LogType.Error);
+            }
+
             AddLog("Запуск WCF", LogType.Information);
             if (!StartServer())
             {
                 Stop();
                 return;
             }
+           
+            AddLog("Запуск конфигурации", LogType.Information);
             try
             {
-                AddLog("Загрузка конфигурации", LogType.Information);
-                ConfigurationManager.Load();
-                pingManager.LoadConfig();
+
+                process.StartProcess(ConfigurationManager.config);
+                AddLog("Конфигурация запущена", LogType.Information);
             }
             catch (Exception ex)
             {
-                AddLog($"Ошибка загрузки конфигурации: {ex.Message}", LogType.Error);
+                AddLog($"Ошибка запуска конфигурации: {ex.Message}", LogType.Error);
             }
-            AddLog("Запуск конфигурации", LogType.Information);
-            process.StartProcess(ConfigurationManager.config);
-            AddLog("Конфигурация запущена", LogType.Information);
             pingManager.Start();
             AddLog("Сервис запущен", LogType.Information);
         }
@@ -114,7 +127,7 @@ namespace SmevAdapterService
                 netTcpBinding.OpenTimeout = new TimeSpan(24, 0, 0);
                 netTcpBinding.ReceiveTimeout = new TimeSpan(24, 0, 0);
                 netTcpBinding.SendTimeout = new TimeSpan(24, 0, 0);
-                wi = new WcfServer(logger, process, ConfigurationManager, pingManager);
+                wi = new WcfServer(logger, process, ConfigurationManager, pingManager, dbManager);
 
 
                 WcfConnection = new ServiceHost(wi, new Uri(uri), new Uri(mexUri));

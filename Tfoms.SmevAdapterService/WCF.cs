@@ -14,6 +14,7 @@ using NpgsqlTypes;
 using SMEV;
 using SMEV.WCFContract;
 using SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService;
+using SmevAdapterService.VS;
 
 namespace SmevAdapterService
 {
@@ -21,21 +22,24 @@ namespace SmevAdapterService
     class WcfServer : IWcfInterface
     {
         private ILogger logger;
-        private IProcess process;
+        private IProcesor process;
         private IConfigurationManager ConfigurationManager { get; set; }
         private IPingManager pingManager;
-      
+        private IDBManager dbManager { get; set; }
+
+
         private void AddLog(string log, LogType type)
         {
             logger?.AddLog(log, type);
         }
        
-        public WcfServer(ILogger logger, IProcess process, IConfigurationManager ConfigurationManager, IPingManager pingManager)
+        public WcfServer(ILogger logger, IProcesor process, IConfigurationManager ConfigurationManager, IPingManager pingManager, IDBManager dbManager)
         {
             this.logger = logger;
             this.process = process;
             this.ConfigurationManager = ConfigurationManager;
             this.pingManager = pingManager;
+            this.dbManager = dbManager;
         }
 
      
@@ -51,6 +55,7 @@ namespace SmevAdapterService
             ConfigurationManager.config.Check();
             ConfigurationManager.Save();
             AddLog("Перезапуск Конфигурации(изменение)", LogType.Information);
+            dbManager.ChangeConnectionString(ConfigurationManager.config.ConnectionString);
             process.StopProcess();
             process.StartProcess(ConfigurationManager.config);
             AddLog("Конфигурация запущена", LogType.Information);
@@ -76,7 +81,7 @@ namespace SmevAdapterService
                 foreach (var t in process.CurrentWork)
                 {
                     var value = t.Value;
-                    res.Add(new VSWorkProcess { Activ = value.isActiv, ItSystem = value.ItSystem, VS = value.VS, Text = value.Text });
+                    res.Add(new VSWorkProcess { Activ = value.IsRunning, ItSystem = value.ItSystem, VS = value.VS, Text = value.Text });
                 }
                 return res;
             }
@@ -89,25 +94,33 @@ namespace SmevAdapterService
         {
             try
             {
-                var tbl = new DataTable();
-                var cmd = new NpgsqlCommand("SELECT * FROM public.getlog_service(@Count, @VS, @DATE_B, @DATE_E)", new NpgsqlConnection(ConfigurationManager.config.ConnectionString));
-                cmd.Parameters.Add(new NpgsqlParameter("Count", Count));
-
-                var vs_par = new NpgsqlParameter("VS", NpgsqlDbType.Array | NpgsqlDbType.Numeric);
-                vs_par.Value = VS!=null? (object)VS.Select(x=>(int)x).ToArray(): DBNull.Value;              
-                cmd.Parameters.Add(vs_par);
-
-                cmd.Parameters.Add(new NpgsqlParameter("DATE_B", DATE_B.HasValue? (object)DATE_B.Value.Date: DBNull.Value));
-                cmd.Parameters.Add(new NpgsqlParameter("DATE_E", DATE_E.HasValue ? (object)DATE_E.Value.Date : DBNull.Value));
-                var oda = new NpgsqlDataAdapter(cmd);
-                oda.Fill(tbl);
-                return LogRow.Get(tbl.Select());
+                return dbManager.GetLogMessage(null,Count, VS, DATE_B, DATE_E);
             }
             catch (Exception ex)
             {
                 throw new FaultException(ex.Message);
             }
         }
+        public void  Resent(int ID)
+        {
+            try
+            {
+               var logs=  dbManager.GetLogMessage(ID, 1, null, null, null);
+                var item = logs.FirstOrDefault();
+                if (item == null)
+                    throw new Exception("Не удалось найти сообщение");
+                if(item.VS != MessageLoggerVS.InputData)
+                    throw new Exception("Повтор отправки доступен только для InputData");
+                var p = process.CurrentWork.FirstOrDefault(x => x.Key == SMEV.WCFContract.VS.MP);
+                p.Value.Resent(ID);
+            }
+            catch (Exception ex)
+            {
+                throw new FaultException(ex.Message);
+            }
+        }
+
+
 
         public string[] GetFolderLocal(string path)
         {
@@ -137,50 +150,17 @@ namespace SmevAdapterService
         }
         public MedpomData GetMedpomData(int ID)
         {
-            using (var con = new NpgsqlConnection(ConfigurationManager.config.ConnectionString))
-            {
-                var oda = new NpgsqlDataAdapter(@"SELECT * FROM  public.medpom_data_out t  where log_service_id = @log_service_id", con);
-                oda.SelectCommand.Parameters.Add(new NpgsqlParameter("log_service_id", ID));
-                var outTable = new DataTable();
-                oda.Fill(outTable);
-
-                oda = new NpgsqlDataAdapter(@"SELECT * FROM  public.medpom_data_in where  log_service_id = @log_service_id", con);
-                oda.SelectCommand.Parameters.Add(new NpgsqlParameter("log_service_id", ID));
-                var inTable = new DataTable();
-                oda.Fill(inTable);
-     
-                return new MedpomData(inTable.Rows.Count!=0? MedpomInData.Get(inTable.Rows[0]) : new MedpomInData(), MedpomOutData.Get(outTable.Select()));
-            }
+            return dbManager.GetMedpomData(ID);
         }
         public FeedBackData GetFeedBackData(int ID)
         {
-            using (var con = new NpgsqlConnection(ConfigurationManager.config.ConnectionString))
-            {
-                var oda = new NpgsqlDataAdapter(@"SELECT * FROM public.feedbackinfo where  log_service_id = @log_service_id", con);
-                oda.SelectCommand.Parameters.Add(new NpgsqlParameter("log_service_id", ID));
-                var inTable = new DataTable();
-                oda.Fill(inTable);
-
-
-                return new FeedBackData(FeedBackDataIN.Get(inTable.Select()));
-            }
+            return dbManager.GetFeedBackData(ID);
         }
         public List<ReportRow> GetReport(DateTime DATE_B, DateTime DATE_E)
         {
             try
             {
-                var rez = new List<ReportRow>();
-                var tbl = new DataTable();
-                var cmd = new NpgsqlCommand("SELECT * FROM public.report_mp(@DATE_B, @DATE_E)", new NpgsqlConnection(ConfigurationManager.config.ConnectionString));
-                cmd.Parameters.Add(new NpgsqlParameter("DATE_B", NpgsqlDbType.Date) { Value = DATE_B.Date });
-                cmd.Parameters.Add(new NpgsqlParameter("DATE_E", NpgsqlDbType.Date) { Value = DATE_E.Date });
-                var oda = new NpgsqlDataAdapter(cmd);
-                oda.Fill(tbl);
-                foreach (DataRow row in tbl.Rows)
-                {
-                    rez.Add(ReportRow.Get(row));
-                }
-                return rez;
+                return dbManager.GetReport(DATE_B, DATE_E);
             }
             catch (Exception ex)
             {
@@ -203,41 +183,6 @@ namespace SmevAdapterService
         }
 
 
-        public static List<string> GetProcessPath()
-        {
-            var Result = new List<string>();
-            try
-            {
-                var Query = "SELECT ProcessId, ExecutablePath, CommandLine FROM Win32_Process";
-                using (var mos = new ManagementObjectSearcher(Query))
-                {
-                    using (var moc = mos.Get())
-                    {
-                        var query = from p in Process.GetProcesses()
-                            join mo in moc.Cast<ManagementObject>()
-                                on p.Id equals (int)(uint)mo["ProcessId"]
-                            select new
-                            {
-                                Process = p,
-                                Path = (string)mo["ExecutablePath"],
-                                CommandLine = (string)mo["CommandLine"],
-                            };
-                        foreach (var item in query)
-                        {
-                            Result.Add(item.Path);
-                        }
-
-                        return Result;
-                    }
-                }
-
-            }
-            catch(Exception ex)
-            {
-                return Result;
-            }
-
-        }
         List<IWcfInterfaceCallback> clientList = new List<IWcfInterfaceCallback>();
         public void Register()
         {
@@ -250,31 +195,7 @@ namespace SmevAdapterService
         {
             try
             {
-                using (var CONN = new NpgsqlConnection(ConfigurationManager.config.ConnectionString))
-                {
-                    CONN.Open();
-                    using (var TRAN = CONN.BeginTransaction())
-                    {
-                        try
-                        {
-                            foreach (var ID in IDs)
-                            {
-                                var cmd = new NpgsqlCommand("SELECT public.DELETE_LOG(@ID)", CONN);
-                            
-                                cmd.Parameters.Add(new NpgsqlParameter("ID", ID));
-                                cmd.ExecuteNonQuery();
-                            }
-                            TRAN.Commit();
-                            
-                        }
-                        catch (Exception)
-                        {
-                            TRAN.Rollback();
-                            throw;
-                        }
-                    }
-                    CONN.Close();
-                }
+                 dbManager.DeleteLog(IDs);
             }
             catch (Exception ex)
             {
@@ -285,12 +206,27 @@ namespace SmevAdapterService
         public void ChangeActivProcess(SMEV.WCFContract.VS vS, bool v)
         {
             var VS = ConfigurationManager.config.ListVS.FirstOrDefault(x => x.VS == vS);
-            if (VS != null)
+            var proc = process.CurrentWork.ToArray().Where(x => x.Key == vS).Select(x=>x.Value).FirstOrDefault();
+            if (VS != null && proc!=null)
             {
                 VS.isEnabled = v;
-                process.StopProcess();
-                process.StartProcess(ConfigurationManager.config);
+                if(v)
+                    proc.StartProcess();
+                else
+                    proc.StopProcess();
                 ConfigurationManager.Save();
+            }
+        }
+
+        public List<STATUS_OUT> GetStatusOut(int ID)
+        {
+            try
+            {
+                return dbManager.GetStatusOut(ID);
+            }
+            catch (Exception ex)
+            {
+                throw new FaultException(ex.Message);
             }
         }
 
@@ -304,12 +240,11 @@ namespace SmevAdapterService
                 {
                     cal.Ping();
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     removeCl.Add(cal);
                 }
             }
-
             foreach (var cal in removeCl)
             {
                 clientList.Remove(cal);
