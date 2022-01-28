@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Xml;
 using System.Xml.Linq;
 using SMEV.WCFContract;
 
@@ -114,8 +116,8 @@ namespace SmevAdapterService.AdapterLayer.Integration
                 var FileNameOUTArc = $"{mes.ID}_{FileNameOUT}.OUT";
 
                 //Сохраняем исходящий в архив
-                mes.Content.Save(Path.Combine(ArcPath, FileNameOUTArc));
-                mes.Content.Save(Path.Combine(Config.OutputFolder, FileNameOUT));
+                mes.Content.SaveXML(Path.Combine(ArcPath, FileNameOUTArc));
+                mes.Content.SaveXML(Path.Combine(Config.OutputFolder, FileNameOUT));
             }
             catch (Exception ex)
             {
@@ -264,5 +266,14 @@ namespace SmevAdapterService.AdapterLayer.Integration
         }
     }
 
-   
+   public static class Ext
+    {
+        public static void SaveXML(this XDocument doc, string path)
+        {
+            using (var writer = new XmlTextWriter(path, new UTF8Encoding(false)))
+            {
+                doc.Save(writer);
+            }
+        }
+    }
 }

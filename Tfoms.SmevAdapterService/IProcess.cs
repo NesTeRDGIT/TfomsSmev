@@ -547,7 +547,7 @@ namespace SmevAdapterService
                                 {
                                     var Dir = Path.Combine(Config_VS.TranspotrMessage, NameType.ToString(), DateTime.Now.ToString("yyyyMMdd"));
                                     if (!Directory.Exists(Dir)) Directory.CreateDirectory(Dir);
-                                    var path = Path.Combine(Dir, $"[{mes.Key}][REQ][RAW][{DateTime.Now.Hour.ToString()}-{DateTime.Now.Minute.ToString()}].xml");
+                                    var path = Path.Combine(Dir, $"[{mes.Key}][REQ][RAW][{DateTime.Now.Hour}-{DateTime.Now.Minute}].xml");
                                     rmt.RequestContent.content.MessagePrimaryContent.Save(path);
                                     mlog.UpdateStatusIN(idlog, MessageLoggerStatus.INPUT);
                                     mlog.UpdateCommentIN(idlog, $"SAVE: {path}");

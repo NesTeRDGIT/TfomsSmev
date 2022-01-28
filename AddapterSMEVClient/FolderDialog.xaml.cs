@@ -22,14 +22,8 @@ namespace AddapterSMEVClient
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(Name));
         }
-        IWcfInterface wcf
-        {
-            get
-            {
-                return MainWindow.wcf;
-            }
-        }
-       List<FolderDialogItem> _Items = new List<FolderDialogItem>();
+        IWcfInterface wcf => MainWindow.wcf;
+        List<FolderDialogItem> _Items = new List<FolderDialogItem>();
        public List<FolderDialogItem> Items { get { return _Items; } set { _Items = value; RaisePropertyChanged("Items"); } }
 
         List<string> drives = new List<string>();

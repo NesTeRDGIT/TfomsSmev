@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows;
+using AddapterSMEVClient.Annotations;
 using SMEV.WCFContract;
 
 namespace AddapterSMEVClient
@@ -12,16 +14,17 @@ namespace AddapterSMEVClient
     public partial class ViewMP : Window, INotifyPropertyChanged
     {
         public static IWcfInterface wcf => MainWindow.wcf;
-
         MedpomData _Data = new MedpomData(new MedpomInData(), new List<MedpomOutData>());
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        void RaisePropertyChanged(string Name)
+        public MedpomData Data
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(Name));
+            get => _Data;
+            set
+            {
+                _Data = value;
+                RaisePropertyChanged();
+            }
         }
 
-        public MedpomData Data { get{return _Data;}set{ _Data = value; RaisePropertyChanged("Data"); } }
         public ViewMP(int ID)
         {
             InitializeComponent();
@@ -29,12 +32,18 @@ namespace AddapterSMEVClient
             {
                 Data = wcf.GetMedpomData(ID);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
-            
-            
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [NotifyPropertyChangedInvocator]
+        protected virtual void RaisePropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

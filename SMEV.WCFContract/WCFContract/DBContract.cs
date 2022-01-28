@@ -125,6 +125,9 @@ namespace SMEV.WCFContract
                 item.datefrom = Convert.ToDateTime(row["datefrom"]);
                 item.dateto = Convert.ToDateTime(row["dateto"]);
                 item.unitedpolicynumber = Convert.ToString(row["unitedpolicynumber"]);
+                item.snils = Convert.ToString(row["snils"]);
+                item.doc_s = Convert.ToString(row["doc_s"]);
+                item.doc_n = Convert.ToString(row["doc_n"]);
                 return item;
             }
             catch (Exception ex)
@@ -148,6 +151,12 @@ namespace SMEV.WCFContract
         public DateTime dateto { get; set; }
         [DataMember]
         public string unitedpolicynumber { get; set; }
+        [DataMember]
+        public string snils { get; set; }
+        [DataMember]
+        public string doc_s { get; set; }
+        [DataMember]
+        public string doc_n { get; set; }
     }
     [DataContract]
     public class MedpomOutData

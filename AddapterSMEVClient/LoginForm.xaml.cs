@@ -10,12 +10,17 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Xml;
+using System.Xml.Linq;
 using AddapterSMEVClient.Properties;
 using AddapterSMEVClient.ServerBehavior;
+using SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided;
 using SMEV.WCFContract;
+using SmevAdapterService.VS;
 
 namespace AddapterSMEVClient
 {
+   
     /// <summary>
     /// Логика взаимодействия для LoginForm.xaml
     /// </summary>
@@ -29,6 +34,11 @@ namespace AddapterSMEVClient
         {
             InitializeComponent();
             textBoxHOST.Text = Settings.Default.IP_CONNECT;
+            /*
+            SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided.OutputData t = new OutputData();
+            var doc = t.SerializeToX();
+            doc.Save("C:\\TEMP\\1.xml");
+            doc.SaveXML("C:\\TEMP\\2.xml");*/
         }
 
         void StartAnimateButton1()

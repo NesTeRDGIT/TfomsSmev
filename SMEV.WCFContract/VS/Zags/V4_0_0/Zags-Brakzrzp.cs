@@ -22,7 +22,6 @@ namespace SMEV.VS.Zags.V4_0_0
 
         public IResponseMessage Answer(string connectionString)
         {
-            // var e = req.Registry.RegistryRecord[0].Record.RecordContent.BRAKZRZPRequest.ИдСвед;
             var e = Registry.RegistryRecord[0].Record.RecordContent.Attribute("ИдСвед")?.Value;
             return new BRAKZRZPResponse
             {
@@ -51,7 +50,7 @@ namespace SMEV.VS.Zags.V4_0_0
         {
             var xmlSerializer = new XmlSerializer(typeof(BRAKZRZPResponse));
             var memoryStream = new MemoryStream();
-            var xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8);
+            var xmlTextWriter = new XmlTextWriter(memoryStream, new UTF8Encoding(false));
             xmlTextWriter.Formatting = Formatting.Indented;
             xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
             memoryStream.Seek(0, SeekOrigin.Begin);

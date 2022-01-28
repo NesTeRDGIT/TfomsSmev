@@ -35,6 +35,7 @@ namespace AddapterSMEVClient
         private bool close { get; set; }
         public MainWindow()
         {
+          
             VM.SetDispatcher(this.Dispatcher);
             if (ConnectWCF())
                 CreateNotifyIcon();

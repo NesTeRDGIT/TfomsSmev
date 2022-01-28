@@ -45,6 +45,7 @@ namespace SmevAdapterService
         Guids GetGuids(int log_service_id);
         int? FindIDByMessageOut(string id_message_out);
         void SetMedpomDataIn(int log_service_id, string familyname, string firstname, string patronymic, DateTime birthdate, DateTime datefrom, DateTime dateto, string unitedpolicynumber, string orderId);
+        void SetMedpomDataIn(int log_service_id, string FAM, string IM, string OT, DateTime DR, DateTime datefrom, DateTime dateto, string ENP, string SNILS, string DOC_S,string DOC_N);
         void SetFeedbackINFO(SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData InputData, int log_service_id);
         void SetMedpomDataOut(int log_service_id, List<SLUCH_REF> IDs);
         List<SLUCH_REF> GetMedpomDataOut(int log_service_id);
@@ -311,6 +312,40 @@ VALUES (@log_service_id,@familyname, @firstname, @patronymic, @birthdate, @datef
                 throw new Exception(string.Format("Ошибка в SetMedpomDataIn: {0}", ex.Message, ex));
             }
         }
+
+        public void SetMedpomDataIn(int log_service_id, string FAM, string IM, string OT, DateTime DR, DateTime datefrom, DateTime dateto, string ENP, string SNILS, string DOC_S, string DOC_N)
+        {
+            try
+            {
+                using (var con = new NpgsqlConnection(ConnectionString))
+                {
+                    using (var cmd = new NpgsqlCommand(@"INSERT INTO  public.medpom_data_in
+(log_service_id,  familyname,  firstname,  patronymic,  birthdate,  datefrom,  dateto,  unitedpolicynumber,SNILS,DOC_S,DOC_N)
+VALUES (@log_service_id,@familyname, @firstname, @patronymic, @birthdate, @datefrom, @dateto, @unitedpolicynumber,@SNILS,@DOC_S,@DOC_N)", con))
+                    {
+                        cmd.Parameters.Add(new NpgsqlParameter("log_service_id", log_service_id));
+                        cmd.Parameters.Add(new NpgsqlParameter("familyname", string.IsNullOrEmpty(FAM) ? (object)DBNull.Value : FAM));
+                        cmd.Parameters.Add(new NpgsqlParameter("firstname", string.IsNullOrEmpty(IM) ? (object)DBNull.Value : IM));
+                        cmd.Parameters.Add(new NpgsqlParameter("patronymic", string.IsNullOrEmpty(OT) ? (object)DBNull.Value : OT));
+                        cmd.Parameters.Add(new NpgsqlParameter("birthdate", DR));
+                        cmd.Parameters.Add(new NpgsqlParameter("datefrom", datefrom));
+                        cmd.Parameters.Add(new NpgsqlParameter("dateto", dateto));
+                        cmd.Parameters.Add(new NpgsqlParameter("unitedpolicynumber", string.IsNullOrEmpty(ENP) ? (object)DBNull.Value : ENP));
+                        cmd.Parameters.Add(new NpgsqlParameter("SNILS", string.IsNullOrEmpty(SNILS) ? (object)DBNull.Value : SNILS));
+                        cmd.Parameters.Add(new NpgsqlParameter("DOC_S", string.IsNullOrEmpty(DOC_S) ? (object)DBNull.Value : DOC_S));
+                        cmd.Parameters.Add(new NpgsqlParameter("DOC_N", string.IsNullOrEmpty(DOC_N) ? (object)DBNull.Value : DOC_N));
+                        con.Open();
+                        var c = cmd.ExecuteNonQuery();
+                        con.Close();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(string.Format("Ошибка в SetMedpomDataIn2: {0}", ex.Message, ex));
+            }
+        }
+
         public void SetFeedbackINFO(SMEV.VS.MedicalCare.newV1_0_0.FeedbackOnMedicalService.InputData InputData, int log_service_id)
         {
             try

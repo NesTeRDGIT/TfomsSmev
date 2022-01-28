@@ -55,7 +55,7 @@ namespace SMEV.VS.Zags.V4_0_0
         {
             XmlSerializer xmlSerializer = new XmlSerializer(typeof(FATALZPResponse));
             MemoryStream memoryStream = new MemoryStream();
-            XmlTextWriter xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8);
+            XmlTextWriter xmlTextWriter = new XmlTextWriter(memoryStream, new UTF8Encoding(false));
             xmlTextWriter.Formatting = Formatting.Indented;
             xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
             memoryStream.Seek(0, SeekOrigin.Begin);

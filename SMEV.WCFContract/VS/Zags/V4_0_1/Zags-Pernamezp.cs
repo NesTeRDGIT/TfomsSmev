@@ -43,14 +43,14 @@ namespace SMEV.VS.Zags.V4_0_1
         public string ИдСвед { get; set; }
 
         [XmlAttribute] 
-        public string КодОбр { get; set; } = "1";
+        public string КодОбр { get; set; } = "01";
 
         XElement IResponseMessage.Serialize()
         {
             var xmlSerializer = new XmlSerializer(typeof(PERNAMEZPResponse));
             using (var memoryStream = new MemoryStream())
             {
-                using (var xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8))
+                using (var xmlTextWriter = new XmlTextWriter(memoryStream, new UTF8Encoding(false)))
                 {
                     xmlTextWriter.Formatting = Formatting.Indented;
                     xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);

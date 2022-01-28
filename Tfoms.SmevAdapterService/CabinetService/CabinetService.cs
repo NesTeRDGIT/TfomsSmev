@@ -37,7 +37,7 @@ namespace SmevAdapterService.CabinetService
                 var from_dt = new DateTime(2008, 1, 1);
                 var to_dt = DateTime.Now.Date;
                 var id_ms = messageLogger.AddInputMessage(MessageLoggerVS.InputDataSiteTFOMS, "", MessageLoggerStatus.SUCCESS, "", "","");
-                messageLogger.SetMedpomDataIn(id_ms, person.FAM, person.IM, person.OT, person.DR, from_dt, to_dt, person.ENP,"");
+                messageLogger.SetMedpomDataIn(id_ms, person.FAM, person.IM, person.OT, person.DR, from_dt, to_dt, person.ENP,person.SNILS,person.DOCS, person.DOCN);
 
                 if (string.IsNullOrEmpty(person.SNILS) && string.IsNullOrEmpty(person.ENP) && (string.IsNullOrEmpty(person.DOCS) || string.IsNullOrEmpty(person.DOCN)))
                 {
@@ -48,12 +48,13 @@ namespace SmevAdapterService.CabinetService
                 List<V_MEDPOM_SMEV3Row> out_date;
                 if (validateResults.Any())
                 {
+                   
                     var message = string.Join(";", validateResults.Select(x => x.ErrorMessage));
                     messageLogger.InsertStatusOut(id_ms, MessageLoggerStatus.SUCCESS, $"Ошибка валидации данных информации о гражданине {message}");
                     throw ThrowException("PersonValidationError",  message );
                 }
                 response.Info = GetPersonInfo(person);
-                out_date = GetMedicalCare(person, from_dt, to_dt);
+                out_date = GetMedicalCare(person.FAM,person.IM, person.OT, person.DR, response.Info?.ENP??person.ENP, from_dt, to_dt);
                 response.Care = Convert(out_date);
                 if(out_date!=null)
                     messageLogger.SetMedpomDataOut(id_ms, out_date.Select(x=> new SLUCH_REF(x.isMTR, x.SLUCH_Z_ID,x.SLUCH_ID,x.USL_ID)).ToList());
@@ -88,9 +89,9 @@ namespace SmevAdapterService.CabinetService
         /// </summary>
         /// <param name="person"></param>
         /// <returns></returns>
-        private List<V_MEDPOM_SMEV3Row> GetMedicalCare(Person person,DateTime From, DateTime To)
+        private List<V_MEDPOM_SMEV3Row> GetMedicalCare(string FAM,string IM, string OT, DateTime DR, string ENP, DateTime From, DateTime To)
         {
-            var rows = mPAnswer.GetData(person.FAM, person.IM, person.OT, person.DR, person.ENP, From, To);
+            var rows = mPAnswer.GetData(FAM, IM, OT, DR, ENP, From, To);
             return rows;
         }
 

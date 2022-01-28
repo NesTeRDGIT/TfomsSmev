@@ -47,14 +47,14 @@ namespace SMEV.VS.Zags.V4_0_0
 
 
         [XmlAttribute] 
-        public string КодОбр { get; set; } = "1";
+        public string КодОбр { get; set; } = "01";
 
 
         public XElement Serialize()
         {
             XmlSerializer xmlSerializer = new XmlSerializer(typeof(BRAKZZPResponse));
             MemoryStream memoryStream = new MemoryStream();
-            XmlTextWriter xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8);
+            XmlTextWriter xmlTextWriter = new XmlTextWriter(memoryStream, new UTF8Encoding(false));
             xmlTextWriter.Formatting = Formatting.Indented;
             xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
             memoryStream.Seek(0, SeekOrigin.Begin);

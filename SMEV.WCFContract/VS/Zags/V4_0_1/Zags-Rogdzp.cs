@@ -52,7 +52,7 @@ namespace SMEV.VS.Zags.V4_0_1
             var xmlSerializer = new XmlSerializer(typeof(ROGDZPResponse));
             using (var memoryStream = new MemoryStream())
             {
-                using (var xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8))
+                using (var xmlTextWriter = new XmlTextWriter(memoryStream, new UTF8Encoding(false)))
                 {
                     xmlTextWriter.Formatting = Formatting.Indented;
                     xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);

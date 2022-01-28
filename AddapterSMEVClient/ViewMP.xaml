@@ -8,7 +8,7 @@
         x:Name="this"
         mc:Ignorable="d"
        xmlns:wcf="clr-namespace:SMEV.WCFContract;assembly=SMEV"
-        Title="Данные о запросе МП" Height="300" Width="675" WindowStartupLocation="CenterScreen">
+        Title="Данные о запросе МП" Height="383.831" Width="675" WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <CollectionViewSource x:Key="CVS" Source="{Binding ElementName=this, Path=Data.OUT }" d:DesignSource="{d:DesignInstance {x:Type wcf:MedpomOutData}, CreateList=True}" ></CollectionViewSource>
     </Window.Resources>
@@ -23,21 +23,28 @@
                     <ColumnDefinition Width="81*"/>
                     <ColumnDefinition Width="80*"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="textBoxFAM" Height="23" Margin="10,20,10,0" TextWrapping="Wrap" Text="{Binding Data.IN.familyname, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" IsReadOnly="True"/>
-                <TextBox x:Name="textBoxIM" Height="23" Margin="10,59,10,0" TextWrapping="Wrap" Text="{Binding Data.IN.firstname, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" IsReadOnly="True"/>
-                <Label x:Name="label" Content="Фамилия" HorizontalAlignment="Left" Margin="6,3,0,0" VerticalAlignment="Top" FontSize="8" />
-                <Label x:Name="label_Copy" Content="Имя" HorizontalAlignment="Left" Margin="6,43,0,0" VerticalAlignment="Top" FontSize="8" />
-                <TextBox x:Name="textBoxOT" Height="23" Margin="10,98,10,0" TextWrapping="Wrap" Text="{Binding Data.IN.patronymic, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" IsReadOnly="True"/>
-                <Label x:Name="label_Copy1" Content="Отчество" HorizontalAlignment="Left" Margin="6,82,0,0" VerticalAlignment="Top" FontSize="8" />
-                <TextBox x:Name="textBoxENP" Height="23" Margin="10,137,10,0" TextWrapping="Wrap" Text="{Binding Data.IN.unitedpolicynumber, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" IsReadOnly="True"/>
-                <Label x:Name="label_Copy2" Content="ЕНП" HorizontalAlignment="Left" Margin="6,121,0,0" VerticalAlignment="Top" FontSize="8" />
-                <DatePicker x:Name="DatePickerDR" Height="23" Margin="10,170,10,0"   SelectedDate="{Binding Data.IN.birthdate, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" IsEnabled="False"/>
-                <Label x:Name="label_Copy3" Content="Дата рождения" HorizontalAlignment="Left" Margin="6,154,0,0" VerticalAlignment="Top" FontSize="8" />
-                <DatePicker x:Name="DatePickerDATE_B" Height="23"  SelectedDate="{Binding Data.IN.datefrom, ElementName=this}" Margin="10,209,0,0" Text="TextBox" VerticalAlignment="Top" HorizontalAlignment="Left" Width="108" IsEnabled="False"/>
-                <Label x:Name="label_Copy4" Content="Дата начала"  HorizontalAlignment="Left" Margin="6,193,0,0" VerticalAlignment="Top" FontSize="8" />
-                <Label x:Name="label_Copy5" Content="Дата начала" HorizontalAlignment="Right" Margin="0,193,63,0" VerticalAlignment="Top" FontSize="8" Grid.Column="1" />
-                <DatePicker x:Name="DatePickerDATE_E" Height="23" Margin="0,209,10,0"  SelectedDate="{Binding Data.IN.dateto, ElementName=this}" VerticalAlignment="Top" Grid.Column="1" HorizontalAlignment="Right" Width="108" IsEnabled="False"/>
-            </Grid>
+                <Label Grid.Column="0" Content="Фамилия" HorizontalAlignment="Left" Margin="6,3,0,0" VerticalAlignment="Top" FontSize="8" />
+                <TextBox Height="23" Margin="10,20,10,0" Text="{Binding Data.IN.familyname, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="0" IsReadOnly="True"/>
+                <Label Grid.Column="0" Content="Имя" HorizontalAlignment="Left" Margin="6,43,0,0" VerticalAlignment="Top" FontSize="8" />
+                <TextBox Height="23" Margin="10,59,10,0" Text="{Binding Data.IN.firstname, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="0" IsReadOnly="True"/>
+                <Label Grid.Column="0" Content="Отчество" HorizontalAlignment="Left" Margin="6,82,0,0" VerticalAlignment="Top" FontSize="8" />
+                <TextBox Height="23" Margin="10,98,10,0" Text="{Binding Data.IN.patronymic, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="0" IsReadOnly="True"/>
+                <Label Grid.Column="0" Content="ЕНП" HorizontalAlignment="Left" Margin="7,121,0,0" VerticalAlignment="Top" FontSize="8" />
+                <TextBox Height="23" Margin="11,137,9,0" Text="{Binding Data.IN.unitedpolicynumber, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="0" IsReadOnly="True"/>
+                <Label Grid.Column="0" Content="СНИЛС" HorizontalAlignment="Left" Margin="7,160,0,0" VerticalAlignment="Top" FontSize="8" />
+                <TextBox  Height="23" Margin="11,176,9,0"  Text="{Binding Data.IN.snils, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="0" IsReadOnly="True"/>
+                <Label Grid.Column="0"  Content="Серия документа" HorizontalAlignment="Left" Margin="7,198,0,0" VerticalAlignment="Top" FontSize="8" />
+                <TextBox  Height="23" Margin="11,214,10,0" Text="{Binding Data.IN.doc_s, ElementName=this}" VerticalAlignment="Top" Grid.Column="0" IsReadOnly="True"/>
+                <Label Grid.Column="1"  Content="№ документа" HorizontalAlignment="Left" Margin="10,198,0,0" VerticalAlignment="Top" FontSize="8"  />
+                <TextBox  Height="23" Margin="9,214,10,0"  Text="{Binding Data.IN.doc_n, ElementName=this}" VerticalAlignment="Top" Grid.Column="1" IsReadOnly="True"/>
+                <Label Grid.Column="0" Content="Дата рождения" HorizontalAlignment="Left" Margin="7,238,0,0" VerticalAlignment="Top" FontSize="8" />
+                <DatePicker Height="23" Margin="11,254,9,0"   SelectedDate="{Binding Data.IN.birthdate, ElementName=this}" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="0" IsEnabled="False"/>
+                <Label Grid.Column="0" Content="Дата начала" HorizontalAlignment="Left" Margin="7,277,0,0" VerticalAlignment="Top" FontSize="8" />
+                <DatePicker Grid.Column="0" Height="23"  SelectedDate="{Binding Data.IN.datefrom, ElementName=this}" Margin="11,293,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="108" IsEnabled="False"/>
+                <Label Content="Дата начала" HorizontalAlignment="Right" Margin="0,277,62,0" VerticalAlignment="Top" FontSize="8" Grid.Column="1" />
+                <DatePicker Height="23" Margin="0,293,9,0"  SelectedDate="{Binding Data.IN.dateto, ElementName=this}" VerticalAlignment="Top" Grid.Column="1" HorizontalAlignment="Right" Width="108" IsEnabled="False"/>
+
+</Grid>
 
         </GroupBox>
         <GroupBox x:Name="groupBox_Copy" Header="Ответ" Grid.Column="1">
@@ -50,7 +57,7 @@
                         <DataGridTextColumn Header="USL__ID" Binding="{Binding USL_ID}"></DataGridTextColumn>
                     </DataGrid.Columns>
                 </DataGrid>
-                <TextBox x:Name="textBox" Height="23" Margin="208,0,0,3" TextWrapping="Wrap" Text="{Binding Count, Mode=OneWay, Source={StaticResource CVS}}" VerticalAlignment="Bottom" TextAlignment="Right" IsReadOnly="True" FontWeight="Bold" Background="{x:Null}" BorderBrush="{x:Null}"/>
+                <TextBox x:Name="textBox" Height="23" Margin="208,0,0,3"  Text="{Binding Count, Mode=OneWay, Source={StaticResource CVS}}" VerticalAlignment="Bottom" TextAlignment="Right" IsReadOnly="True" FontWeight="Bold" Background="{x:Null}" BorderBrush="{x:Null}"/>
             </Grid>
         </GroupBox>
 

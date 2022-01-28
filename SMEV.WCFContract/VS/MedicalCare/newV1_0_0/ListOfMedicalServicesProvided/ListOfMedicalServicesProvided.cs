@@ -97,7 +97,7 @@ namespace SMEV.VS.MedicalCare.newV1_0_0.ListOfMedicalServicesProvided
         {
             var xmlSerializer = new XmlSerializer(typeof(OutputData));
             var memoryStream = new MemoryStream();
-            var xmlTextWriter = new XmlTextWriter(memoryStream, Encoding.UTF8) {Formatting = Formatting.Indented};
+            var xmlTextWriter = new XmlTextWriter(memoryStream, new UTF8Encoding(false)) {Formatting = Formatting.Indented};
             xmlSerializer.Serialize(xmlTextWriter, this, Xmlns);
             memoryStream.Seek(0, SeekOrigin.Begin);
             return XElement.Load(memoryStream);
