@@ -135,6 +135,7 @@
     <Compile Include="CabinetService\InformingModelDataContext.cs" />
     <Compile Include="CabinetService\IRegister.cs" />
     <Compile Include="ConfigurationManager.cs" />
+    <Compile Include="FileHelper.cs" />
     <Compile Include="IDBManager.cs" />
     <Compile Include="IMPAnswer.cs" />
     <Compile Include="LoggerEventLog.cs" />
