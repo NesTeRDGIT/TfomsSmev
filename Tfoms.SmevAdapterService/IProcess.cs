@@ -692,27 +692,29 @@ namespace SmevAdapterService
         {
             logger?.AddLog(log, type);
         }
-        private void PFR(CancellationToken cancel)
+        private async Task PFRAsync(CancellationToken cancel)
         {
             try
             {
                 param.Text = "Начало работы";
-                var Config_VS = param.Config;
+                var configVs = param.Config;
                 var mlog = messageLogger;
                 param.Text = "Запуск интеграции";
                 var fi = repository;
 
                 while (!cancel.IsCancellationRequested)
                 {
-                    foreach (var file in GetMessagePFPOut(Config_VS.UserOutMessage))
+                    var files = await GetMessagePFPOut(configVs.UserOutMessage);
+                    foreach (var file in files)
                     {
                         var clientId = mlog.GetNewGuidOut();
-                        var send = CreatePFRData(file, Config_VS.ItSystem, clientId);
+                        var send = CreatePFRData(file, configVs.ItSystem, clientId);
                         var id = mlog.AddInputMessage(MessageLoggerVS.PFR_SNILS, "", MessageLoggerStatus.NONE, "", "");
                         mlog.InsertStatusOut(id, MessageLoggerStatus.OUTPUT, $"FILE: {file}");
+                        mlog.SetOutMessage(id, clientId, MessageLoggerStatus.OUTPUT);
                         var ms = new MessageIntegration { Key = clientId, ID = id, Content = send.SerializeToX() };
                         fi.SendMessage(ms);
-                        var dirArc = Path.Combine(Config_VS.FilesConfig.ArchiveFolder, DateTime.Now.ToString("yyyy_MM_dd"), "UserOut");
+                        var dirArc = Path.Combine(configVs.FilesConfig.ArchiveFolder, DateTime.Now.ToString("yyyy_MM_dd"), "UserOut");
                         if (!Directory.Exists(dirArc))
                             Directory.CreateDirectory(dirArc);
 
@@ -737,7 +739,7 @@ namespace SmevAdapterService
                                     throw new Exception($"Не удалось найти ID сообщения для [{mes.Key}]");
                                 }
                                 mes.ID = id.Value;
-                                var Dir = Path.Combine(Config_VS.TranspotrMessage, DateTime.Now.ToString("yyyyMMdd"));
+                                var Dir = Path.Combine(configVs.TranspotrMessage, DateTime.Now.ToString("yyyyMMdd"));
                                 if (!Directory.Exists(Dir)) Directory.CreateDirectory(Dir);
 
                                 var rmt = adapterInMessage.Message as ResponseMessageType;
@@ -794,7 +796,6 @@ namespace SmevAdapterService
                             AddLog($"Ошибка потоке обработки ПФР: {ex.Message} ", LogType.Error);
                             fi.ErrorMessage(mes);
                         }
-
                     }
                     param.Text = "Ожидание сообщения";
                     Delay(param.TimeOut, cancel);
@@ -806,12 +807,25 @@ namespace SmevAdapterService
             }
         }
 
-        private List<string> GetMessagePFPOut(string DIR)
+        private async Task<List<string>> GetMessagePFPOut(string dir)
         {
             try
             {
-                return Directory.GetFiles(DIR, "*.xml").ToList();
 
+                var files = Directory.GetFiles(dir, "*.xml").ToList();
+                var removeItems = new List<string>();
+                foreach (var file in files)
+                {
+                    if (await FileHelper.TryCheckFileAvAsync(file, 3, 3000))
+                    {
+                        removeItems.Add(file);
+                    }
+                }
+                foreach (var file in removeItems)
+                {
+                    files.Remove(file);
+                }
+                return files;
             }
             catch (Exception ex)
             {
@@ -819,12 +833,14 @@ namespace SmevAdapterService
             }
         }
 
-        private SendRequest CreatePFRData(string Path, string ITSYSTEM, string reply)
+       
+
+        private SendRequest CreatePFRData(string path, string itsystem, string reply)
         {
-            var root = XDocument.Load(Path);
+            var root = XDocument.Load(path);
             var ad = new SendRequest()
             {
-                itSystem = ITSYSTEM,
+                itSystem = itsystem,
                 RequestMessage = new RequestMessageType()
                 {
                     RequestMetadata = new RequestMetadataType()
@@ -848,7 +864,7 @@ namespace SmevAdapterService
         public void StartProcess()
         {
             CTS = new CancellationTokenSource();
-            task = new Task(() => PFR(CTS.Token));
+            task = new Task(() => PFRAsync(CTS.Token));
             task.Start();
         }
 
@@ -857,7 +873,7 @@ namespace SmevAdapterService
             CTS?.Cancel();
         }
 
-        public void Resent(int ID)
+        public void Resent(int id)
         {
             throw new NotImplementedException();
         }
