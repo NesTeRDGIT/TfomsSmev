@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SmevAdapterService
@@ -44,6 +45,19 @@ namespace SmevAdapterService
             return false;
         }
 
+
+        public static bool TryCheckFileAv(string path, int maxCount, int timeOut)
+        {
+            var count = 0;
+            while (count < maxCount)
+            {
+                if ( CheckFileAv(path))
+                    return true;
+                count++;
+                Thread.Sleep(timeOut);
+            }
+            return false;
+        }
 
     }
 }

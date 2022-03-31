@@ -692,7 +692,7 @@ namespace SmevAdapterService
         {
             logger?.AddLog(log, type);
         }
-        private async Task PFRAsync(CancellationToken cancel)
+        private  void PFRAsync(CancellationToken cancel)
         {
             try
             {
@@ -704,7 +704,7 @@ namespace SmevAdapterService
 
                 while (!cancel.IsCancellationRequested)
                 {
-                    var files = await GetMessagePFPOut(configVs.UserOutMessage);
+                    var files = GetMessagePFPOut(configVs.UserOutMessage);
                     foreach (var file in files)
                     {
                         var clientId = mlog.GetNewGuidOut();
@@ -807,16 +807,15 @@ namespace SmevAdapterService
             }
         }
 
-        private async Task<List<string>> GetMessagePFPOut(string dir)
+        private List<string> GetMessagePFPOut(string dir)
         {
             try
             {
-
                 var files = Directory.GetFiles(dir, "*.xml").ToList();
                 var removeItems = new List<string>();
                 foreach (var file in files)
                 {
-                    if (await FileHelper.TryCheckFileAvAsync(file, 3, 3000))
+                    if (!FileHelper.TryCheckFileAv(file, 3, 3000))
                     {
                         removeItems.Add(file);
                     }
@@ -863,9 +862,16 @@ namespace SmevAdapterService
         private CancellationTokenSource CTS;
         public void StartProcess()
         {
-            CTS = new CancellationTokenSource();
-            task = new Task(() => PFRAsync(CTS.Token));
-            task.Start();
+            try
+            {
+                CTS = new CancellationTokenSource();
+                task = Task.Run(() => { PFRAsync(CTS.Token);});
+            }
+            catch(Exception ex)
+            {
+                AddLog($"Ошибка запуска ПФР: {ex.Message}", LogType.Error);
+            }
+            
         }
 
         public void StopProcess()
